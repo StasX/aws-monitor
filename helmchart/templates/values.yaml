@@ -1,0 +1,12 @@
+replicaCount: 2
+
+pod:
+  name: flask-aws-monitor
+  image:
+    name: sm1986/flask-aws-monitor
+    tag: latest
+  target_port: 5001
+
+aws:
+  accessKey: ""
+  secretKey: ""
