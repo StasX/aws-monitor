@@ -1,0 +1,14 @@
+replicas: 1
+
+ingress:
+  enabled: true
+
+pod:
+  name: flask-aws-monitor
+  image: "sm1986/flask-aws-monitor"
+  tag: "latest"
+  targetPort: 5001
+  port: 80
+
+ingres:
+  enabled: true

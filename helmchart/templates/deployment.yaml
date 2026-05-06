@@ -1,25 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-deployment
+  name: {{ .Release.Name }}-deploy
 spec:
-  replicas: {{ .Values.replicaCount }}
-  selector:
+  selector: 
     matchLabels:
       app: {{ .Release.Name }}
+      {{- include "exam.labels" . | nindent 6}}
+  replicas: {{ .Values.replicas }}
   template:
     metadata:
       labels:
         app: {{ .Release.Name }}
+        {{- include "exam.labels" . | nindent 8}}
     spec:
       containers:
-        - name: {{ .Values.pod.name }}
-          image: {{ .Values.pod.image.name }}:{{ .Values.image.tag }}
-          ports:
-            - containerPort: {{ .Values.pod.target_port }}
-          
-          env:
-            - name: AWS_ACCESS_KEY_ID
-              value: "{{ .Values.aws.accessKey }}"
-            - name: AWS_SECRET_ACCESS_KEY
-              value: "{{ .Values.aws.secretKey }}"
+      - name: {{ .Release.Name }}
+        image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}
+        ports:
+        - containerPort: {{ .Values.pod.targetPort }}
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          value: {{ .Values.AWS_ACCESS_KEY | quote }}
+        - name: AWS_SECRET_ACCESS_KEY
+          value: {{ .Values.AWS_SECRET_ACCESS_KEY | quote }}
