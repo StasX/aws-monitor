@@ -21,6 +21,6 @@ spec:
         - containerPort: {{ .Values.pod.targetPort }}
         env:
         - name: AWS_ACCESS_KEY_ID
-          value: {{ .Values.AWS_ACCESS_KEY | quote }}
+          value: {{ .Values.AWS_ACCESS_KEY_ID }}
         - name: AWS_SECRET_ACCESS_KEY
-          value: {{ .Values.AWS_SECRET_ACCESS_KEY | quote }}
+          value: {{ .Values.AWS_SECRET_ACCESS_KEY }}
