@@ -9,3 +9,12 @@ pod:
   tag: "latest"
   targetPort: 5001
   port: 5001
+
+resources:
+  requests:
+    cpu: "200m"
+    memory: "256Mi"
+
+  limits:
+    cpu: "500m"
+    memory: "512Mi"

@@ -24,3 +24,12 @@ spec:
             value: "{{ .Values.env.AWS_ACCESS_KEY_ID }}"
           - name: AWS_SECRET_ACCESS_KEY
             value: "{{ .Values.env.AWS_SECRET_ACCESS_KEY }}"
+        
+        resources:
+          requests:
+            cpu: {{ .Values.resources.requests.cpu | quote }}
+            memory: {{ .Values.resources.requests.memory | quote }}
+
+          limits:
+            cpu: {{ .Values.resources.limits.cpu | quote }}
+            memory: {{ .Values.resources.limits.memory | quote }}
