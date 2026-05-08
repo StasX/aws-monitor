@@ -1,7 +1,7 @@
 replicas: 1
 
 ingress:
-  enabled: true
+  enabled: false
 
 pod:
   name: flask-aws-monitor
