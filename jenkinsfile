@@ -13,7 +13,12 @@ podTemplate(cloud: 'kubernetes', containers: [
         image: 'docker:26-dind', // Use the latest stable DinD image
         privileged: true,      // Essential for Docker daemon to run
         args: '--storage-driver=vfs' // VFS is safest for K8s, though slower
-    )], 
+    ),
+    containerTemplate(
+        name: 'helm', 
+        image: 'helm:3.0.0', // Use the latest stable helm image
+    )
+    ], 
   volumes: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false) // Q: Why do we need this volume?
   ]) {
@@ -30,7 +35,7 @@ podTemplate(cloud: 'kubernetes', containers: [
               echo "Building docker image..."
               sh "docker build -t ${appimage}:${apptag} ."
             }
-        } //end build docker image
+        }
         stage('Push Docker Image') {
             container('docker') {              
               echo "Tagging docker image..."
@@ -46,6 +51,10 @@ podTemplate(cloud: 'kubernetes', containers: [
               sh "docker push  ${appimage}:latest"
 
             }
-        } //end push docker image
+        }
+          stage('Helm Template') {
+              container('helm') {
+                echo "Deploying to Kubernetes using Helm..."
+                sh "helm template ${appname} ./chart"
     }
 }
