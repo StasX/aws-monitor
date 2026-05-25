@@ -32,12 +32,21 @@ podTemplate(cloud: 'kubernetes', containers: [
             }
         } //end build docker image
         stage('Push Docker Image') {
-            container('docker') {
+            container('docker') {              
               echo "Tagging docker image..."
               sh "docker tag ${appimage}:${apptag} ${appimage}:latest"
-              echo "Pushing docker image to registry..."
-              // sh "docker push ${appimage}:${apptag}"
-              sh "docker push ${appimage}:latest"
+
+              // echo "Logging in to Docker registry..."
+              // withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
+              //   sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
+              // }
+
+              docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-creds') {
+                  echo "Pushing docker image to registry..."
+                  sh "docker push ${appimage}:${apptag}"
+                  sh "docker push  ${appimage}:latest"
+              }
+
             }
         } //end push docker image
     }
