@@ -56,5 +56,6 @@ podTemplate(cloud: 'kubernetes', containers: [
               container('helm') {
                 echo "Deploying to Kubernetes using Helm..."
                 sh "helm template ${appname} ./chart"
+              }
     }
 }
