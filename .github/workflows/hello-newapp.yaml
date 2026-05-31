@@ -16,4 +16,4 @@ jobs:
           .github
           chart
     - name: notify
-      run: curl -X POST -H 'Content-type: application/json' --data '{"text":"Pipe line finished successfuly"}' ${ secrets.SLACK_API }
+      run: curl -X POST -H 'Content-type: application/json' --data '{"text":"Pipe line finished successfuly"}' ${{ secrets.SLACK_API }}
