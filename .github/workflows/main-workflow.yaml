@@ -55,7 +55,7 @@ name: alert-workflow
 on:
   workflow_run:
     workflows:
-      - main-workflow.yaml
+      - main-workflow
     types:
       - completed
 
