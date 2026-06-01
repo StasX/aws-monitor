@@ -1,7 +1,7 @@
-name: alert
+name: alert-workflow
 on:
   workflow_run:
-    workflows: ["main"]
+    workflows: ["main-workflow"]
     types:
       - completed
   workflow_dispatch:
