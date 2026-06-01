@@ -8,7 +8,7 @@ env:
   APP_NAME: hello-newapp
 
 jobs:
-  deploy-app:
+  checkout-and-dockerize:
     runs-on: ubuntu-latest
     environment: DOCKERHUB_USERNAME
 
