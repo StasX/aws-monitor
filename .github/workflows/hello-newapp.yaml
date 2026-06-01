@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+env:
+  APP_NAME: hello-newapp
+
 jobs:
   deploy-app:
     runs-on: ubuntu-latest
@@ -28,12 +31,14 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
     
-    # - name: Build and push
-    #   uses: docker/build-push-action@v7
-    #   with:
-    #     context: .
-    #     push: true
-    #     tags: user/app:latest
+    - name: Build and push
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ vars.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:${{ github.run_number }}
+          ${{ vars.DOCKERHUB_USERNAME }}/${{ env.APP_NAME }}:latest
 
     - name: notify
       uses: slackapi/slack-github-action@v3.0.3
