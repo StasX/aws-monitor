@@ -1,4 +1,4 @@
-name: hello-newapp
+name: main
 
 on:
   push:

@@ -1,0 +1,20 @@
+name: alert
+on:
+  workflow_run:
+    workflows: ["main"]
+    types:
+      - completed
+  workflow_dispatch:
+  
+jobs:
+  alert:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+    - name: notify
+      uses: slackapi/slack-github-action@v3.0.3
+      with:
+        webhook: ${{ secrets.SLACK_API}}
+        webhook-type: incoming-webhook
+        payload: |
+          text: "Pipe line in workflow: ${{ github.event.workflow_run.name }} failed, please check the logs"
