@@ -47,23 +47,3 @@ jobs:
     #     webhook-type: incoming-webhook
     #     payload: |
     #       text: "Pipe line finished successfuly"
-
----
-
-name: alert-workflow
-
-on:
-  workflow_run:
-    workflows:
-      - main-workflow
-    types:
-      - completed
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - name: test
-      run: |
-        echo ${{ github.event.workflow_run.conclusion }}
-        echo ${{ github.event.workflow_run.conclusion == 'failure' }}
