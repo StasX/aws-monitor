@@ -5,6 +5,13 @@ on:
   workflow_dispatch:
 
 jobs:
+  test-vars:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check variables
+      run: |
+        echo "Username: ${{ vars.DOCKERHUB_USERNAME }}"
+        echo "Token exists: ${{ secrets.DOCKERHUB_TOKEN != '' }}"
   deploy-app:
     runs-on: ubuntu-latest
 
