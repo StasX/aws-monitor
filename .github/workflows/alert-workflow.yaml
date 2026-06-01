@@ -7,13 +7,6 @@ on:
       - completed
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - name: test
-      run: |
-        echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
-
   alert-failure:
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
