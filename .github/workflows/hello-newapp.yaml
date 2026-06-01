@@ -35,4 +35,9 @@ jobs:
         tags: user/app:latest
 
     - name: notify
-      run: curl -X POST -H 'Content-type: application/json' --data '{"text":"Pipe line finished successfuly"}' ${{ secrets.SLACK_API }}
+      uses: slackapi/slack-github-action@v3.0.3
+      with:
+        webhook: ${{ secrets.SLACK_API}}
+        webhook-type: incoming-webhook
+        payload: |
+          text: "Pipe line finished successfuly"
