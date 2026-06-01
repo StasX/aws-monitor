@@ -2,10 +2,11 @@ name: alert-workflow
 
 on:
   workflow_run:
-    workflows:
-      - main-workflow.yaml
+    workflows: ["main-workflow"]
     types:
       - completed
+    branches:
+      - "github-action"
 
 jobs:
   test:
