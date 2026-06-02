@@ -23,10 +23,18 @@ spec:
         - containerPort: {{ .Values.pod.targetPort }}
         env:
           - name: AWS_ACCESS_KEY_ID
-            value: "{{ .Values.env.AWS_ACCESS_KEY_ID }}"
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.awsSecretName }}
+                key: AWS_ACCESS_KEY_ID
+
           - name: AWS_SECRET_ACCESS_KEY
-            value: "{{ .Values.env.AWS_SECRET_ACCESS_KEY }}"
-        
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.awsSecretName }}
+                key: AWS_SECRET_ACCESS_KEY
+
+
         resources:
           requests:
             cpu: {{ .Values.resources.requests.cpu | quote }}

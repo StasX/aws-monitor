@@ -11,6 +11,8 @@ pod:
   targetPort: 5001
   port: 5001
 
+awsSecretName: aws-credentials
+
 resources:
   requests:
     cpu: "200m"
