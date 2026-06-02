@@ -8,7 +8,7 @@ env:
   APP_NAME: hello-newapp
 
 jobs:
-  checkout-and-dockerize:
+  docker:
     runs-on: ubuntu-latest
     environment: DOCKERHUB_USERNAME
 
@@ -43,7 +43,7 @@ jobs:
         cache-to: type=gha,mode=max
   deployment:
     runs-on: ubuntu-latest
-    needs: checkout-and-dockerize
+    needs: docker
     steps:
     - name: checkout
       uses: actions/checkout@v6
@@ -59,7 +59,7 @@ jobs:
         ref: main
         path: argo-gitops
         token: ${{ secrets.GITOPS_TOKEN }}
-    - name: helm-template
+    - name: deploy
       run: |
         helm template test ./chart  --set secret.enabled=false > argo-gitops/application.yaml
         git config --global user.name ${{ secrets.GH_USER }}
