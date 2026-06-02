@@ -52,5 +52,10 @@ jobs:
           .github
           chart
 
+    - name: clone gitops-repo
+      uses: actions/checkout@v6
+      with:
+        repository: "StasX/gitops-repo"
+        token: ${{ secrets.GH_TOKEN }}
     - name: helm-template
-      run: helm template test ./chart  --set secret.enabled=false > app.yaml 
+      run: helm template test ./chart  --set secret.enabled=false > application.yaml
