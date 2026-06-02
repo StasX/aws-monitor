@@ -61,6 +61,8 @@ jobs:
     - name: helm-template
       run: |
         helm template test ./chart  --set secret.enabled=false > argo-gitops/application.yaml
+        git config --global user.name ${{ secrets.GH_USER }}
+        git config --global user.email ${{ secrets.GH_MAIL }}
         git -C argo-gitops add application.yaml
         git -C argo-gitops commit -m "Update application.yaml"
         git -C argo-gitops push origin main
