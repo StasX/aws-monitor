@@ -56,6 +56,7 @@ jobs:
       uses: actions/checkout@v6
       with:
         repository: "StasX/gitops-repo"
+        fef: main
         path: gitops-repo
     - name: helm-template
       run: helm template test ./chart  --set secret.enabled=false > application.yaml
