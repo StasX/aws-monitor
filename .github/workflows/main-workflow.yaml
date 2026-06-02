@@ -57,6 +57,10 @@ jobs:
       with:
         repository: "StasX/argo-gitops"
         ref: main
-        path: gitops-repo
+        path: argo-gitops
     - name: helm-template
-      run: helm template test ./chart  --set secret.enabled=false > application.yaml
+      run: |
+        helm template test ./chart  --set secret.enabled=false > argo-gitops/application.yaml
+        git -C argo-gitops add application.yaml
+        git -C argo-gitops commit -m "Update application.yaml"
+        git -C argo-gitops push origin main
