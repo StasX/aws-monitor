@@ -55,7 +55,7 @@ jobs:
     - name: clone-gitops-repo
       uses: actions/checkout@v6
       with:
-        repository: "StasX/gitops-repo"
+        repository: "StasX/argo-gitops"
         ref: main
         path: gitops-repo
     - name: helm-template
