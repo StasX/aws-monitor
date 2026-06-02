@@ -66,4 +66,4 @@ jobs:
         git config --global user.email ${{ secrets.GH_MAIL }}
         git -C argo-gitops add application.yaml
         git -C argo-gitops commit -m "Update application.yaml"
-        git -C argo-gitops push origin main
+        git -C argo-gitops push origin main --force
