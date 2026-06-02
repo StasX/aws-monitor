@@ -58,6 +58,7 @@ jobs:
         repository: "StasX/argo-gitops"
         ref: main
         path: argo-gitops
+        token: ${{ secrets.GITOPS_TOKEN }}
     - name: helm-template
       run: |
         helm template test ./chart  --set secret.enabled=false > argo-gitops/application.yaml
