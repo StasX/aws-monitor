@@ -14,8 +14,8 @@ spec:
   ports:         
   - name: http   
     protocol: TCP
-    {{ if .Values.ingress.enabled }}
-    port: {{ .Values.ingress.port }}
-    {{ end }}
+    # {{ if .Values.ingress.enabled }}
+    # port: {{ .Values.ingress.port }}
+    # {{ end }}
     port: {{ .Values.pod.port }}
     targetPort: {{ .Values.pod.targetPort }}
