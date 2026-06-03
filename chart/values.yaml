@@ -8,8 +8,8 @@ pod:
   name: flask-aws-monitor
   image: "sm1986/flask-aws-monitor"
   tag: "latest"
-  targetPort: 80
-  port: 5001
+  targetPort: 5001
+  port: 80
 
 awsSecretName: aws-credentials
 
