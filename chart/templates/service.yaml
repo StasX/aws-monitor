@@ -17,5 +17,5 @@ spec:
     # {{ if .Values.ingress.enabled }}
     # port: {{ .Values.ingress.port }}
     # {{ end }}
-    port: {{ .Values.pod.port }}
-    targetPort: {{ .Values.pod.targetPort }}
+    port: {{ .Values.pod.targetPort }}
+    targetPort: {{ .Values.pod.port }}

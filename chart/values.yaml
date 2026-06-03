@@ -2,7 +2,7 @@ replicas: 1
 
 ingress:
   enabled: true
-  port: 80
+  # port: 80
 
 pod:
   name: flask-aws-monitor
