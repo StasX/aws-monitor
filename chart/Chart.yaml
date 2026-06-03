@@ -1,6 +1,6 @@
 apiVersion: v2
 name: flask-aws-monitor
-description: Flask app monitoring AWS
+description: Flask app monitoring for AWS
 type: application
 version: 0.1.0
 appVersion: "1.16.0"
