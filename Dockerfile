@@ -1,6 +1,8 @@
 FROM python:3.14.4
 WORKDIR /app
-RUN python -m venv env
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    python -m venv env
 COPY requirements.txt .
 RUN /app/env/bin/pip install -r requirements.txt
 COPY . .
