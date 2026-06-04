@@ -8,6 +8,22 @@ env:
   APP_NAME: hello-newapp
 
 jobs:
+  bandit-testing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v6
+      with:
+        sparse-checkout: |
+          ./
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+    - name: Install Bandit
+      run: pip install bandit
+    - name: Run Bandit
+      run: bandit -r ./
   docker:
     runs-on: ubuntu-latest
     environment: DOCKERHUB_USERNAME
