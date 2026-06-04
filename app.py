@@ -37,17 +37,20 @@ def home():
     # Fetch VPCs
     vpcs = ec2_client.describe_vpcs()
     if vpcs:
-        vpc_data = [{"VPC ID": vpc["VpcId"], "CIDR": vpc["CidrBlock"]} for vpc in vpcs["Vpcs"]]
+        vpc_data = [{"VPC ID": vpc["VpcId"], "CIDR": vpc["CidrBlock"]}
+                    for vpc in vpcs["Vpcs"]]
 
     # Fetch Load Balancers
     lbs = elb_client.describe_load_balancers()
     if lbs:
-        lb_data = [{"LB Name": lb["LoadBalancerName"], "DNS Name": lb["DNSName"]} for lb in lbs["LoadBalancers"]]
+        lb_data = [{"LB Name": lb["LoadBalancerName"],
+                    "DNS Name": lb["DNSName"]} for lb in lbs["LoadBalancers"]]
 
     # Fetch AMIs (only owned by the account)
     amis = ec2_client.describe_images(Owners=["self"])
     if amis:
-        ami_data = [{"AMI ID": ami["ImageId"], "Name": ami.get("Name", "N/A")} for ami in amis["Images"]]
+        ami_data = [{"AMI ID": ami["ImageId"], "Name": ami.get(
+            "Name", "N/A")} for ami in amis["Images"]]
 
     # Render the result in a simple table
     html_template = """
@@ -88,8 +91,10 @@ def home():
             </body>
         </html>"""
 
-
     return render_template_string(html_template, instance_data=instance_data, vpc_data=vpc_data, lb_data=lb_data, ami_data=ami_data)
 
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    APP_HOST = os.getenv("APP_HOST", "127.0.0.1")
+    APP_PORT = os.getenv("APP_PORT", 5001)
+    app.run(host=APP_HOST, port=APP_PORT, debug=False)
