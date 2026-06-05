@@ -96,8 +96,8 @@ jobs:
         push: false
         load: true
         tags: |
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.app_name }}:${{ needs.app-information-extraction.outputs.app_version }}
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.app_name }}:latest
+          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:latest
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -107,7 +107,7 @@ jobs:
         scan-type: "image"
         output: trivy-report.json
         format: json
-        scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.app_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+        scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
         exit-code: 0
 
     - name: Upload Vulnerability Scan Results
@@ -122,7 +122,7 @@ jobs:
       with:
         scan-type: "image"
         format: table
-        scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.app_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+        scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
         severity: HIGH,CRITICAL
         ignore-unfixed: true
         exit-code: 1
@@ -134,8 +134,8 @@ jobs:
         context: .
         push: true 
         tags: |
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.app_name }}:${{ needs.app-information-extraction.outputs.app_version }}
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.app_name }}:latest
+          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:latest
         cache-from: type=gha
 
 #------------------------------------------------------------------------------
