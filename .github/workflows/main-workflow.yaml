@@ -161,7 +161,11 @@ jobs:
 
     - name: deploy
       run: |
-        helm template test ./chart  --set secret.enabled=false > argo-gitops/application.yaml
+        helm template test ./chart \
+        --set-string pod.image="${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}" \
+        --set-string pod.tag="${{ needs.app-information-extraction.outputs.app_version }}" \
+        --set-string pod.name="${{ needs.app-information-extraction.outputs.app_name }}" \
+        --set secret.enabled=false > argo-gitops/application.yaml
         git config --global user.name ${{ secrets.GH_USER }}
         git config --global user.email ${{ secrets.GH_MAIL }}
         git -C argo-gitops add application.yaml
