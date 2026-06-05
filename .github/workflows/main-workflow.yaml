@@ -2,6 +2,11 @@ name: main-workflow
 
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'project.toml'
+      - 'Jenkinsfile'
   workflow_dispatch:
 
 env:

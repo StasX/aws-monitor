@@ -1,0 +1,5 @@
+[project]
+name = "AWS-Monitor"
+version = "1.0.0"
+description = "Monitoring Application for AWS"
+requires-python = ">=3.14"
