@@ -7,7 +7,7 @@ on:
       - 'README.md'
       - 'project.toml'
       - 'Jenkinsfile'
-  workflow_dispatch:
+  # workflow_dispatch:
 
 env:
   APP_NAME: hello-newapp
