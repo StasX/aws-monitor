@@ -96,5 +96,4 @@ def home():
 
 if __name__ == "__main__":
     APP_HOST = os.getenv("APP_HOST", "127.0.0.1")
-    APP_PORT = os.getenv("APP_PORT", 5001)
-    app.run(host=APP_HOST, port=APP_PORT, debug=False)
+    app.run(host=APP_HOST, port=5001, debug=False)
