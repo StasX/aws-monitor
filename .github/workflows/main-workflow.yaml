@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       app_name: ${{ steps.parse.outputs.app_name }}
+      image_name: ${{ steps.parse.outputs.image_name }}
       app_version: ${{ steps.parse.outputs.app_version }}
       app_description: ${{ steps.parse.outputs.app_description }}
     steps:
@@ -37,6 +38,7 @@ jobs:
               d = tomllib.load(f)
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write(f'app_name={d[\"project\"][\"name\"]}\n')
+              out.write(f'image_name={d[\"project\"][\"name\"]}\n'.lower())
               out.write(f'app_version={d[\"project\"][\"version\"]}\n')
               out.write(f'app_description={d[\"project\"][\"description\"]}\n')
           "
