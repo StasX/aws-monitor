@@ -148,7 +148,6 @@ jobs:
       uses: actions/checkout@v6
       with:
         sparse-checkout: |
-          .github
           chart
 
     - name: clone-gitops-repo
