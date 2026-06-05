@@ -17,3 +17,8 @@ resources:
   limits:
     cpu: "500m"
     memory: "512Mi"
+
+hpa:
+  maxReplicas: 10
+  avgCPUUtilization: 50
+  avgMemoryUtilization: 50
