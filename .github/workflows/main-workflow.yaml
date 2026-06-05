@@ -28,7 +28,8 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Parse project.toml and set outputs 
+      - name: Parse project.toml and set outputs
+        id: parse
         run: |
           python3 -c "
           import tomllib, os
