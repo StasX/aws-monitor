@@ -162,7 +162,7 @@ jobs:
     - name: deploy
       run: |
         helm template test ./chart \
-        --set-string pod.image="${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}" \
+        --set-string pod.image="${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}" \
         --set-string pod.tag="${{ needs.app-information-extraction.outputs.app_version }}" \
         --set-string pod.name="${{ needs.app-information-extraction.outputs.app_name }}" \
         --set secret.enabled=false > argo-gitops/application.yaml
