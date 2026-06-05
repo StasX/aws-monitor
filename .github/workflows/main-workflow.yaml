@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - './README.md'
-      - './project.toml'
+      - 'README.md'
+      - 'project.toml'
       - 'Jenkinsfile'
+      - '.github/workflows/**'
   # workflow_dispatch:
 
 env:
