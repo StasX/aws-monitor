@@ -27,9 +27,6 @@ spec:
           - name: APP_HOST
             value: "0.0.0.0"
 
-          - name: APP_PORT
-            value: {{ .Values.pod.targetPort }}
-
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
