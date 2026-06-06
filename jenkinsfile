@@ -49,17 +49,16 @@ podTemplate(cloud: 'kubernetes', containers: [
 
                 def rawData = sh(
                     script: '''
-            python3 <<'PY'
+            python3 -c "
             import tomllib
 
             with open("pyproject.toml", "rb") as f:
                 d = tomllib.load(f)
-
-            print(f"APP_NAME={d['project']['name']}")
-            print(f"IMAGE_NAME={d['project']['name'].lower()}")
-            print(f"APP_VERSION={d['project']['version']}")
-            print(f"APP_DESCRIPTION={d['project'].get('description', '')}")
-            PY
+                print(f'app_name={d[\"project\"][\"name\"]}\n')
+                print(f'image_name={d[\"project\"][\"name\"]}\n'.lower())
+                print(f'app_version={d[\"project\"][\"version\"]}\n')
+                print(f'app_description={d[\"project\"][\"description\"]}\n')
+            "
             ''',
                     returnStdout: true
                 ).trim()
