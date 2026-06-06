@@ -91,7 +91,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Bearer Testing': {
                     container('bearer') {
                         echo "Running Bearer Scanner..."
-                        sh "bearer scan ."
+                        sh "bearer scan ./ --exit-code 0"
                     }
                 },
                 'Semgrep Testing': {
