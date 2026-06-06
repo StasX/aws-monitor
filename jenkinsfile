@@ -1,69 +1,109 @@
-def appname = "hello-newapp"
+// def appname = "hello-newapp"
 def repo = "sm1986"
-def appimage = "docker.io/${repo}/${appname}"
-def apptag = "${env.BUILD_NUMBER}"
+// def appimage = "docker.io/${repo}/${appname}"
+// def apptag = "${env.BUILD_NUMBER}"
 
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'jnlp', 
         image: 'jenkins/inbound-agent:latest'
     ),
-     containerTemplate(
+    containerTemplate(
         name: 'docker', 
-        image: 'docker:26-dind', // Use the latest stable DinD image
-        privileged: true,      // Essential for Docker daemon to run
-        args: '--storage-driver=vfs' // VFS is safest for K8s, though slower
+        image: 'docker:26-dind',
+        privileged: true,
+        args: '--storage-driver=vfs'
     ),
+    containerTemplate(
+        name: 'python', 
+        image: 'python:3.13-alpine', // Use the latest stable Python image
+        command: 'sleep', // Don't terminate immediately
+        args: '1d'
+    ), 
     containerTemplate(
         name: 'helm', 
         image: 'alpine/helm', // Use the latest stable Helm image
         command: 'sleep', // Don't terminate immediately
-        args: '1h'
+        args: '1d'
     )], 
   volumes: [
-    emptyDirVolume(mountPath: '/var/lib/docker', memory: false) // Q: Why do we need this volume?
+    emptyDirVolume(mountPath: '/var/lib/docker', memory: false),
+    emptyDirVolume(mountPath: '/home/jenkins', memory: false)
   ]) {
     node(POD_LABEL) {
-        stage('Checkout') {
+        def appMeta = [:]// Define shared map for extracted app information across stages
+        // stage('Checkout') {
+        //     container('jnlp') {
+        //     sh '/usr/bin/git config --global http.sslVerify false'
+	      //     checkout scm
+        //   }
+        // }
+        stage('Checkout & Extract App Information') {
             container('jnlp') {
-            sh '/usr/bin/git config --global http.sslVerify false'
-	          checkout scm
-          }
-        } // end checkout
-
-        stage('Build Docker Image') {
-            container('docker') {
-              echo "Building docker image..."
-              sh "docker build -t ${appimage}:${apptag} ."
+                // Ensure we skip SSL if needed internally, then pull code
+                sh 'git config --global http.sslVerify false'
+                checkout scm
             }
-        } //end build docker image
-        stage('Push Docker Image') {
-            container('docker') {              
-              echo "Tagging docker image..."
-              sh "docker tag ${appimage}:${apptag} ${appimage}:latest"
+            container('python') {
+                echo "Extracting metadata from project.toml..."
+                // Python script mimicking tomllib extraction
+                def rawMeta = sh(script: """
+                    python3 -c "
+                import os
+                try:
+                    import tomllib
+                except ImportError:
+                    import pip._internal.backend.utils as _u; import sys; os.system(sys.executable + ' -m pip install tomli')
+                    import tomli as tomllib
 
-              echo "Logging in to Docker registry..."
-              withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
-                sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
-              }
+                with open('project.toml', 'rb') as f:
+                    d = tomllib.load(f)
+                print(f\\"APP_NAME={d['project']['name']}\\")
+                print(f\\"IMAGE_NAME={d['project']['name'].lower()}\\")
+                print(f\\"APP_VERSION={d['project']['version']}\\")
+                print(f\\"APP_DESCRIPTION={d['project']['description']}\\")
+                "
+                """, returnStdout: true).trim()
 
-              echo "Pushing docker image to registry..."
-              sh "docker push ${appimage}:${apptag}"
-              sh "docker push  ${appimage}:latest"
-
-            }
-        } //end push docker image
-        stage('Helm Template') {
-            container('helm') {
-                echo "Deploying to Kubernetes using Helm..."
-                withCredentials([usernamePassword(credentialsId: "aws-keys", usernameVariable: "AWS_ACCESS_KEY_ID", passwordVariable: "AWS_SECRET_ACCESS_KEY")]) {
-                    sh """
-                      helm template ${appname} ./chart \
-                        --set env.AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
-                        --set env.AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-                      """
+                rawMeta.split('\n').each { line ->
+                    def parts = line.split('=')
+                    if (parts.length == 2) appMeta[parts[0]] = parts[1]
                 }
             }
         }
+        // stage('Build Docker Image') {
+        //     container('docker') {
+        //       echo "Building docker image..."
+        //       sh "docker build -t ${appimage}:${apptag} ."
+        //     }
+        // }
+        // stage('Push Docker Image') {
+        //     container('docker') {              
+        //       echo "Tagging docker image..."
+        //       sh "docker tag ${appimage}:${apptag} ${appimage}:latest"
+
+        //       echo "Logging in to Docker registry..."
+        //       withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
+        //         sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
+        //       }
+
+        //       echo "Pushing docker image to registry..."
+        //       sh "docker push ${appimage}:${apptag}"
+        //       sh "docker push  ${appimage}:latest"
+
+        //     }
+        // } //end push docker image
+        // stage('Helm Template') {
+        //     container('helm') {
+        //         echo "Deploying to Kubernetes using Helm..."
+        //         withCredentials([usernamePassword(credentialsId: "aws-keys", usernameVariable: "AWS_ACCESS_KEY_ID", passwordVariable: "AWS_SECRET_ACCESS_KEY")]) {
+        //             sh """
+        //               helm template ${appname} ./chart \
+        //                 --set env.AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID} \
+        //                 --set env.AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+        //               """
+        //         }
+        //     }
+        // }
     }
 }
