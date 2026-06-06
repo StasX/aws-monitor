@@ -6,7 +6,6 @@ on:
     paths-ignore:
       - 'README.md'
       - 'project.toml'
-      - 'Jenkinsfile'
       - '.github/workflows/**'
 
 jobs:
@@ -108,10 +107,38 @@ jobs:
 
 #------------------------------------------------------------------------------
 
+  semgrep-testing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.13'
+
+    - name: Install Semgrep
+      run: pip install semgrep
+
+    - name: Run Semgrep Scan
+      # Added 'p/jenkinsfile' to the scan configs
+      run: |
+        semgrep scan \
+        --config=p/python \
+        --config=p/dockerfile \
+        --config=p/kubernetes \
+        --config=p/github-actions \
+        --config=p/jenkinsfile \
+        --metrics=off \
+        --error
+
+#------------------------------------------------------------------------------
+
   docker:
     runs-on: ubuntu-latest
     environment: DOCKERHUB_USERNAME
-    needs: [app-information-extraction, bandit-testing, checkov-testing, bearer-testing]
+    needs: [app-information-extraction, bandit-testing, checkov-testing, bearer-testing, semgrep-testing]
     steps:
 
     - name: checkout
