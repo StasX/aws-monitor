@@ -1,7 +1,7 @@
-FROM python:3.14.4
+FROM python:3.14.4-alpine3.22
 WORKDIR /app
-RUN apt-get update && \
-    apt-get upgrade -y && \
+RUN apk update && \
+    apk upgrade && \
     python -m venv env
 COPY requirements.txt .
 RUN /app/env/bin/pip install -r requirements.txt
