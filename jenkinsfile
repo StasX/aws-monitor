@@ -81,10 +81,12 @@ podTemplate(cloud: 'kubernetes', containers: [
                         echo "Running Checkov on Dockerfile and Helm Chart..."
                         sh """
                         python3 -m venv .venv-checkov
-                        .venv-checkov/bin/pip install --upgrade pip
-                        .venv-checkov/bin/pip install checkov
-                        .venv-checkov/bin/checkov  -f Dockerfile --framework dockerfile 
-                        .venv-checkov/bin/checkov -d ./chart --framework helm 
+                        . .venv-checkov/bin/activate
+                        pip install --upgrade pip
+                        pip install checkov
+
+                        python -m checkov -f Dockerfile --framework dockerfile
+                        python -m checkov -d ./chart --framework helm
                         """
                     }
                 },
