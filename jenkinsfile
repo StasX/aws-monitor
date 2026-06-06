@@ -38,12 +38,6 @@ podTemplate(cloud: 'kubernetes', containers: [
   ]) {
     node(POD_LABEL) {
         def appMeta = [:]// Define shared map for extracted app information across stages
-        // stage('Checkout') {
-        //     container('jnlp') {
-        //     sh '/usr/bin/git config --global http.sslVerify false'
-	      //     checkout scm
-        //   }
-        // }
         stage('Checkout & Extract App Information') {
             container('jnlp') {
                 // Ensure we skip SSL if needed internally, then pull code
@@ -75,34 +69,41 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Bandit Testing': {
                     container('python') {
                         echo "Running Bandit Python Static Analysis..."
-                        sh "pip install --user bandit && /home/jenkins/.local/bin/bandit -r ./"
+                        sh """
+                        pip install --user bandit
+                        python -m bandit -r ./
+                        bandit -r ./
+                        """
                     }
                 },
                 'Checkov Testing': {
                     container('python') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        sh "pip install --user checkov && /home/jenkins/.local/bin/checkov -d ./chart -f Dockerfile --framework helm,dockerfile"
+                        sh """
+                        pip install --user checkov
+                        python -m checkov -d ./chart -f Dockerfile --framework helm,dockerfile
+                        """
                     }
                 },
                 'Bearer Testing': {
                     container('bearer') {
                         echo "Running Bearer Scanner..."
-                        
-                        sh "./bin/bearer scan ." // fail-action: false equivalent
+                        sh "bearer scan ."
                     }
                 },
                 'Semgrep Testing': {
                     container('python') {
                         echo "Running Semgrep Scans..."
                         sh """
-                            pip install --user semgrep && /home/jenkins/.local/bin/semgrep scan \
-                            --config=p/python \
-                            --config=p/dockerfile \
-                            --config=p/kubernetes \
-                            --config=p/github-actions \
-                            --config=p/jenkinsfile \
-                            --metrics=off \
-                            --error
+                        pip install --user semgrep
+                        python -m semgrep scan \
+                          --config=p/python \
+                          --config=p/dockerfile \
+                          --config=p/kubernetes \
+                          --config=p/github-actions \
+                          --config=p/jenkinsfile \
+                          --metrics=off \
+                          --error
                         """
                     }
                 }
