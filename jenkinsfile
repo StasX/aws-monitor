@@ -45,30 +45,36 @@ podTemplate(cloud: 'kubernetes', containers: [
                 checkout scm
             }
             container('python') {
-                echo "Extracting metadata from project.toml..."
-                // Python script mimicking tomllib extraction
-                def rawMeta = sh(script: """
-                    python3 -c "
-                import os
-                try:
-                    import tomllib
-                except ImportError:
-                    import pip._internal.backend.utils as _u; import sys; os.system(sys.executable + ' -m pip install tomli')
-                    import tomli as tomllib
+                echo "Extracting metadata from pyproject.toml..."
 
-                with open('project.toml', 'rb') as f:
-                    d = tomllib.load(f)
-                print(f\\"APP_NAME={d['project']['name']}\\")
-                print(f\\"IMAGE_NAME={d['project']['name'].lower()}\\")
-                print(f\\"APP_VERSION={d['project']['version']}\\")
-                print(f\\"APP_DESCRIPTION={d['project']['description']}\\")
-                "
-                """, returnStdout: true).trim()
+                def rawData = sh(
+                    script: '''
+            python3 <<'PY'
+            import tomllib
 
-                rawMeta.split('\n').each { line ->
-                    def parts = line.split('=')
-                    if (parts.length == 2) appMeta[parts[0]] = parts[1]
+            with open("pyproject.toml", "rb") as f:
+                d = tomllib.load(f)
+
+            print(f"APP_NAME={d['project']['name']}")
+            print(f"IMAGE_NAME={d['project']['name'].lower()}")
+            print(f"APP_VERSION={d['project']['version']}")
+            print(f"APP_DESCRIPTION={d['project'].get('description', '')}")
+            PY
+            ''',
+                    returnStdout: true
+                ).trim()
+
+                rawData.split('\n').each { line ->
+                    def parts = line.split('=', 2)
+                    if (parts.length == 2) {
+                        appMeta[parts[0]] = parts[1]
+                    }
                 }
+
+                echo "App Name: ${appMeta.APP_NAME}"
+                echo "Image Name: ${appMeta.IMAGE_NAME}"
+                echo "Version: ${appMeta.APP_VERSION}"
+                echo "Description: ${appMeta.APP_DESCRIPTION}"
             }
         }
         // stage('Build Docker Image') {
