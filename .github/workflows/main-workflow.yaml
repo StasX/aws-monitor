@@ -82,7 +82,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.13'
+        python-version: '3.14'
 
     - name: Install Checkov
       run: pip install checkov
@@ -111,7 +111,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     environment: DOCKERHUB_USERNAME
-    needs: [app-information-extraction, bandit-testing, checkov-testing]
+    needs: [app-information-extraction, bandit-testing, checkov-testing, bearer-testing]
     steps:
 
     - name: checkout
