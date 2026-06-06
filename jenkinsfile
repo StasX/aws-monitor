@@ -47,18 +47,8 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('python') {
                 echo "Extracting metadata from pyproject.toml..."
 
-def rawData = sh(
-                    script: '''
-                    python3 -c "
-import tomllib
-with open('pyproject.toml', 'rb') as f:
-    d = tomllib.load(f)
-print(f'app_name={d[\"project\"][\"name\"]}')
-print(f'image_name={d[\"project\"][\"name\"]}'.lower())
-print(f'app_version={d[\"project\"][\"version\"]}')
-print(f'app_description={d[\"project\"][\"description\"]}')
-                    "
-                    ''',
+                def rawData = sh(
+                    script: "python3 -c 'import tomllib; f=open(\"pyproject.toml\", \"rb\"); d=tomllib.load(f); print(f\"app_name={d[\"project\"][\"name\"]}\"); print(f\"image_name={d[\"project\"][\"name\"]}\".lower()); print(f\"app_version={d[\"project\"][\"version\"]}\"); print(f\"app_description={d[\"project\"][\"description\"]}\")'",
                     returnStdout: true
                 ).trim()
 
@@ -68,11 +58,10 @@ print(f'app_description={d[\"project\"][\"description\"]}')
                         appMeta[parts[0]] = parts[1]
                     }
                 }
-
-                echo "App Name: ${appMeta.APP_NAME}"
-                echo "Image Name: ${appMeta.IMAGE_NAME}"
-                echo "Version: ${appMeta.APP_VERSION}"
-                echo "Description: ${appMeta.APP_DESCRIPTION}"
+                echo "App Name: ${appMeta.app_name}"
+                echo "Image Name: ${appMeta.image_name}"
+                echo "Version: ${appMeta.app_version}"
+                echo "Description: ${appMeta.app_description}"
             }
         }
         // stage('Build Docker Image') {
