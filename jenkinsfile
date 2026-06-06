@@ -100,8 +100,8 @@ podTemplate(cloud: 'kubernetes', containers: [
                         sh """
                         python3 -m venv .venv
                         . .venv/bin/activate
-                        pip install semgrep
-                        .venv/bin/python -m semgrep scan \
+                        .venv/bin/python -m pip install semgrep
+                        .venv/bin/semgrep scan \
                         --config=p/python \
                         --config=p/dockerfile \
                         --config=p/kubernetes \
