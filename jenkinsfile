@@ -22,8 +22,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     ), 
     containerTemplate(
         name: 'bearer', 
-        image: 'bearer/bearer', // Use the latest stable Python image
-        command: '/bin/sh', // Don't terminate immediately
+        image: 'docker:26-dind', // Use the latest stable Python image
     ), 
     containerTemplate(
         name: 'helm', 
@@ -90,8 +89,10 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Bearer Testing': {
                     container('bearer') {
                         echo "Running Bearer Scanner..."
-                        sh 'ls -l /bin/sh || ls -l /busybox/sh || true'
-                        // sh "bearer scan ./"
+                        sh '''
+                        docker pull bearer/bearer:latest-amd64
+                        docker run --rm -v /path/to/repo:/tmp/scan bearer/bearer scan ./
+                        '''
                     }
                 },
                 'Semgrep Testing': {
