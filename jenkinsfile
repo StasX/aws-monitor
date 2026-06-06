@@ -72,7 +72,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                         sh """
                         pip install --user bandit
                         
-                        python -m bandit -r ./
+                        python -m bandit -r ./ -x ./.venv,./venv,./node_modules,./tests,./static
                         """
                     }
                 },
