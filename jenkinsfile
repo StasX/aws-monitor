@@ -98,8 +98,10 @@ podTemplate(cloud: 'kubernetes', containers: [
                     container('python') {
                         echo "Running Semgrep Scans..."
                         sh """
-                        pip install --user semgrep
-                        semgrep scan \
+                        python3 -m venv .venv
+                        . .venv/bin/activate
+                        pip install semgrep
+                        .venv/bin/python -m semgrep scan \
                         --config=p/python \
                         --config=p/dockerfile \
                         --config=p/kubernetes \
