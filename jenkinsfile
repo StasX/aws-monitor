@@ -16,7 +16,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     ),
     containerTemplate(
         name: 'python', 
-        image: 'python:3.13-alpine', // Use the latest stable Python image
+        image: 'python:3.13', // Use the latest stable Python image
         command: 'sleep', // Don't terminate immediately
         args: '1d'
     ), 
