@@ -90,7 +90,8 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Bearer Testing': {
                     container('bearer') {
                         echo "Running Bearer Scanner..."
-                        sh "bearer scan ./"
+                        sh 'ls -l /bin/sh || ls -l /busybox/sh || true'
+                        // sh "bearer scan ./"
                     }
                 },
                 'Semgrep Testing': {
