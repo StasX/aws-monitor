@@ -2,7 +2,7 @@
 name = "AWS-Monitor"
 # Don't modify minor version.
 # It will happen automatically.
-version = "1.0.1"
+version = "1.0.2"
 description = "Monitoring Application for AWS"
 requires-python = ">=3.14"
 

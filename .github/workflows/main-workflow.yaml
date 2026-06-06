@@ -7,7 +7,7 @@ on:
       - 'README.md'
       - 'project.toml'
       - 'Jenkinsfile'
-      - '.github/workflows/**'
+      # - '.github/workflows/**'
 
 jobs:
   app-information-extraction:
@@ -90,6 +90,21 @@ jobs:
       run: checkov -d ./chart --framework helm
     - name: Run Checkov on Dockerfile
       run: checkov -f Dockerfile --framework dockerfile
+
+#------------------------------------------------------------------------------
+
+  bearer-testing:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Run Bearer Check
+      uses: bearer/bearer-action@v2
+      with:
+        path: ./
+        only-language: python
+        fail-action: false
 
 #------------------------------------------------------------------------------
 
