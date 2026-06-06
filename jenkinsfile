@@ -23,8 +23,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'bearer', 
         image: 'bearer/bearer', // Use the latest stable Python image
-        command: 'sleep', // Don't terminate immediately
-        args: '1d'
+        command: '/bin/sh', // Don't terminate immediately
     ), 
     containerTemplate(
         name: 'helm', 
@@ -91,7 +90,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Bearer Testing': {
                     container('bearer') {
                         echo "Running Bearer Scanner..."
-                        sh "bearer scan ./ --exit-code 0"
+                        sh "bearer scan ./"
                     }
                 },
                 'Semgrep Testing': {
