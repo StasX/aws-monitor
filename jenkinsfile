@@ -47,19 +47,19 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('python') {
                 echo "Extracting metadata from pyproject.toml..."
 
-                def rawData = sh(
+def rawData = sh(
                     script: '''
-            python3 -c "
-            import tomllib
-
-            with open("pyproject.toml", "rb") as f:
-                d = tomllib.load(f)
-                print(f'app_name={d[\"project\"][\"name\"]}\n')
-                print(f'image_name={d[\"project\"][\"name\"]}\n'.lower())
-                print(f'app_version={d[\"project\"][\"version\"]}\n')
-                print(f'app_description={d[\"project\"][\"description\"]}\n')
-            "
-            ''',
+                    python3 -c 
+                    "
+                    import tomllib
+                    with open('pyproject.toml', 'rb') as f:
+                        d = tomllib.load(f)
+                    print(f'app_name={d[\"project\"][\"name\"]}')
+                    print(f'image_name={d[\"project\"][\"name\"]}'.lower())
+                    print(f'app_version={d[\"project\"][\"version\"]}')
+                    print(f'app_description={d[\"project\"][\"description\"]}')
+                    "
+                    ''',
                     returnStdout: true
                 ).trim()
 
