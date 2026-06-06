@@ -204,7 +204,6 @@ jobs:
         --set-string pod.image="${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}" \
         --set-string pod.tag="${{ needs.app-information-extraction.outputs.app_version }}" \
         --set-string pod.name="${{ needs.app-information-extraction.outputs.app_name }}" \
-        --app-version="${{ needs.app-information-extraction.outputs.app_version }}" \
         --set secret.enabled=false > argo-gitops/application.yaml
         git config --global user.name ${{ secrets.GH_USER }}
         git config --global user.email ${{ secrets.GH_MAIL }}
