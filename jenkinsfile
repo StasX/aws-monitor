@@ -71,7 +71,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                         echo "Running Bandit Python Static Analysis..."
                         sh """
                         pip install --user bandit
-                        python -m bandit -r ./
+                        
                         bandit -r ./
                         """
                     }
@@ -81,7 +81,8 @@ podTemplate(cloud: 'kubernetes', containers: [
                         echo "Running Checkov on Dockerfile and Helm Chart..."
                         sh """
                         pip install --user checkov
-                        python -m checkov -d ./chart -f Dockerfile --framework helm,dockerfile
+                        checkov -d ./chart --framework helm
+                        checkov -f Dockerfile --framework dockerfile
                         """
                     }
                 },
@@ -96,14 +97,13 @@ podTemplate(cloud: 'kubernetes', containers: [
                         echo "Running Semgrep Scans..."
                         sh """
                         pip install --user semgrep
-                        python -m semgrep scan \
-                          --config=p/python \
-                          --config=p/dockerfile \
-                          --config=p/kubernetes \
-                          --config=p/github-actions \
-                          --config=p/jenkinsfile \
-                          --metrics=off \
-                          --error
+                        semgrep scan \
+                        --config=p/python \
+                        --config=p/dockerfile \
+                        --config=p/kubernetes \
+                        --config=p/github-actions \
+                        --metrics=off \
+                        --error
                         """
                     }
                 }
