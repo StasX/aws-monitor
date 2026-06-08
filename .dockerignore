@@ -6,4 +6,4 @@ chart/
 .gitignore
 jenkinsfile
 .app-info.json
-.github/workflows/**
+.github/workflows/
