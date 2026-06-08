@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
-            project.toml
+            .app-info.json
       - name: Export app information
         id: parse
         run: |
@@ -39,24 +39,6 @@ jobs:
             echo "app_version=${APP_VERSION}"
             echo "app_description=${APP_DESCRIPTION}"
           } >> "$GITHUB_OUTPUT"
-      # - name: Set up Python
-      #   uses: actions/setup-python@v6
-      #   with:
-      #     python-version: '3.13'
-
-      # - name: Parse project.toml and set outputs
-      #   id: parse
-      #   run: |
-      #     python3 -c "
-      #     import tomllib, os
-      #     with open('project.toml', 'rb') as f:
-      #         d = tomllib.load(f)
-      #     with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-      #         out.write(f'app_name={d[\"project\"][\"name\"]}\n')
-      #         out.write(f'image_name={d[\"project\"][\"name\"]}\n'.lower())
-      #         out.write(f'app_version={d[\"project\"][\"version\"]}\n')
-      #         out.write(f'app_description={d[\"project\"][\"description\"]}\n')
-      #     "
 
   #------------------------------------------------------------------------------
 
@@ -136,7 +118,6 @@ jobs:
         run: pip install semgrep
 
       - name: Run Semgrep Scan
-        # Added 'p/jenkinsfile' to the scan configs
         run: |
           semgrep scan \
           --config=p/python \
@@ -288,35 +269,3 @@ jobs:
           git add .app-info.json
           git commit -m "Update next app version in .app-info.json"
           git push origin main
-      # - name: Set up Python
-      #   uses: actions/setup-python@v6
-      #   with:
-      #     python-version: "3.14"
-
-      # - name: Upgrade Minor Version
-      #   run: |
-      #     python3 -c "
-      #     current_version = '${{ needs.app-information-extraction.outputs.app_version }}'
-      #     major, minor, patch = current_version.split('.')
-      #     new_version = f'{major}.{int(minor) + 1}.0'
-      #     with open('project.toml', 'r') as f:
-      #         content = f.read()
-      #     updated_content = content.replace(current_version, new_version)
-      #     with open('project.toml', 'w') as f:
-      #         f.write(updated_content)
-      #     print(f'Bumped version from {current_version} to {new_version}')
-      #     "
-      # - name: clone-main-repo
-      #   uses: actions/checkout@v6
-      #   with:
-      #     repository: "StasX/HELM-Exam"
-      #     ref: main
-      #     path: HELM-Exam
-      #     token: ${{ secrets.GITOPS_TOKEN }}
-      # - name: Commit and Push Updated Version
-      #   run: |
-      #     git config --global user.name "${{ secrets.GH_USER }}"
-      #     git config --global user.email "${{ secrets.GH_MAIL }}"
-      #     git add .app-info.json
-      #     git commit -m "Update next app version in .app-info.json"
-      #     git push origin main
