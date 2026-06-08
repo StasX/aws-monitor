@@ -42,19 +42,19 @@ podTemplate(cloud: 'kubernetes', containers: [
                 echo "Extracting metadata from .app-info.json..."
 
                 def appInfo["name"] = sh(
-                    script: "jq -r '.name' .app-info.json"
+                    script: "jq -r '.name' .app-info.json",
                     returnStdout: true
                 ).trim()
                 def appInfo["image_name"] = sh(
-                    script: "jq -r '.name' .app-info.json | tr '[:upper:]' '[:lower:]'"
+                    script: "jq -r '.name' .app-info.json | tr '[:upper:]' '[:lower:]'",
                     returnStdout: true
                 ).trim()
                 def appInfo["version"] = sh(
-                    script: "jq -r '.version' .app-info.json"
+                    script: "jq -r '.version' .app-info.json",
                     returnStdout: true
                 ).trim()
                 def appInfo["description"] = sh(
-                    script: "jq -r '.description' .app-info.json"
+                    script: "jq -r '.description' .app-info.json",
                     returnStdout: true
                 ).trim()
             }
