@@ -19,11 +19,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         image: 'python:3.13', // Use the latest stable Python image
         command: 'sleep', // Don't terminate immediately
         args: '1d'
-    ), 
-    containerTemplate(
-        name: 'bearer', 
-        image: 'docker:26-dind', // Use the latest stable Python image
-    ), 
+    ),
     containerTemplate(
         name: 'helm', 
         image: 'alpine/helm', // Use the latest stable Helm image
@@ -35,31 +31,32 @@ podTemplate(cloud: 'kubernetes', containers: [
     emptyDirVolume(mountPath: '/home/jenkins', memory: false)
   ]) {
     node(POD_LABEL) {
-        def appMeta = [:]// Define shared map for extracted app information across stages
+        def appInfo = [:]// Define shared map for extracted app information across stages
         stage('Checkout & Extract App Information') {
             container('jnlp') {
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
             }
-            container('python') {
-                echo "Extracting metadata from project.toml..."
+            container('jnlp') {
+                echo "Extracting metadata from .app-info.json..."
 
-                def rawData = sh(
-                    script: "python3 -c 'import tomllib; f=open(\"project.toml\", \"rb\"); d=tomllib.load(f); print(f\"app_name={d[\"project\"][\"name\"]}\"); print(f\"image_name={d[\"project\"][\"name\"]}\".lower()); print(f\"app_version={d[\"project\"][\"version\"]}\"); print(f\"app_description={d[\"project\"][\"description\"]}\")'",
+                def appInfo["name"] = sh(
+                    script: "jq -r '.name' .app-info.json"
                     returnStdout: true
                 ).trim()
-
-                rawData.split('\n').each { line ->
-                    def parts = line.split('=', 2)
-                    if (parts.length == 2) {
-                        appMeta[parts[0]] = parts[1]
-                    }
-                }
-                echo "App Name: ${appMeta.app_name}"
-                echo "Image Name: ${appMeta.image_name}"
-                echo "Version: ${appMeta.app_version}"
-                echo "Description: ${appMeta.app_description}"
+                def appInfo["image_name"] = sh(
+                    script: "jq -r '.name' .app-info.json | tr '[:upper:]' '[:lower:]'"
+                    returnStdout: true
+                ).trim()
+                def appInfo["version"] = sh(
+                    script: "jq -r '.version' .app-info.json"
+                    returnStdout: true
+                ).trim()
+                def appInfo["description"] = sh(
+                    script: "jq -r '.description' .app-info.json"
+                    returnStdout: true
+                ).trim()
             }
         }
         stage('Security Scans') {
