@@ -46,6 +46,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             }
             container('alpine') {
                 echo "Extracting metadata from .app-info.json..."
+                sh "apk add --no-cache jq"
                 
                 appInfo["name"] = sh(
                     script: "jq -r '.name' .app-info.json",
