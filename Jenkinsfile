@@ -41,19 +41,19 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('jnlp') {
                 echo "Extracting metadata from .app-info.json..."
 
-                def appInfo["name"] = sh(
+                appInfo["name"] = sh(
                     script: "jq -r '.name' .app-info.json",
                     returnStdout: true
                 ).trim()
-                def appInfo["image_name"] = sh(
+                appInfo["image_name"] = sh(
                     script: "jq -r '.name' .app-info.json | tr '[:upper:]' '[:lower:]'",
                     returnStdout: true
                 ).trim()
-                def appInfo["version"] = sh(
+                appInfo["version"] = sh(
                     script: "jq -r '.version' .app-info.json",
                     returnStdout: true
                 ).trim()
-                def appInfo["description"] = sh(
+                appInfo["description"] = sh(
                     script: "jq -r '.description' .app-info.json",
                     returnStdout: true
                 ).trim()
@@ -138,3 +138,4 @@ podTemplate(cloud: 'kubernetes', containers: [
         // }
     }
 }
+
