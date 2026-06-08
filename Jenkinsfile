@@ -40,7 +40,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             }
             container('jnlp') {
                 echo "Extracting metadata from .app-info.json..."
-
+                sh "apt-get update && apt-get install -y jq"
                 appInfo["name"] = sh(
                     script: "jq -r '.name' .app-info.json",
                     returnStdout: true
