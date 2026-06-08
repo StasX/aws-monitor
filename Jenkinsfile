@@ -119,8 +119,9 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('docker') {
                 echo "Running Trivy vulnerability scan on the built image..."
                 sh """
-                apk add --no-cache trivy
-                trivy image --severity HIGH,CRITICAL --exit-code 1 docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']}
+                docker run aquasec/trivy image docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']} \
+                --severity HIGH,CRITICAL \
+                --exit-code 1
                 """
             }
         }
