@@ -100,7 +100,6 @@ jobs:
         uses: bearer/bearer-action@v2
         with:
           path: ./
-          only-language: python
           fail-action: false
 
   #------------------------------------------------------------------------------
