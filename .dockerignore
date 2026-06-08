@@ -5,3 +5,4 @@ chart/
 .gitattributes
 .gitignore
 jenkinsfile
+.app-info.json

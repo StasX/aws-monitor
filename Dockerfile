@@ -1,4 +1,5 @@
 FROM python:3.14.4-alpine3.22
+ARG APP_HOST="0.0.0.0"
 RUN apk update && \
     apk upgrade && \
     apk add --no-cache curl
