@@ -27,12 +27,18 @@ jobs:
       - name: Export app information
         id: parse
         run: |
+          APP_NAME=$(jq -r '.name' .app-info.json)
+          IMAGE_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
+          APP_VERSION=$(jq -r '.version' .app-info.json)
+          APP_DESCRIPTION=$(jq -r '.description' .app-info.json)
+
+          # Write variables directly to GitHub Output context
           {
-            echo "app_name=$( jq -Qo './.app-info.json | .name')"
-            echo "image_name=$( jq -Qo './.app-info.json | .name' | tr' [:lower:]' )"
-            echo "app_version=$( jq -Qo './.app-info.json | .version' )"
-            echo "app_description=$( jq -Qo './.app-info.json | .description' )"
-          } >> $GITHUB_OUTPUT
+            echo "app_name=${APP_NAME}"
+            echo "image_name=${IMAGE_NAME}"
+            echo "app_version=${APP_VERSION}"
+            echo "app_description=${APP_DESCRIPTION}"
+          } >> "$GITHUB_OUTPUT"
       # - name: Set up Python
       #   uses: actions/setup-python@v6
       #   with:
