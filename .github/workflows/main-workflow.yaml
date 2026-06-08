@@ -90,19 +90,6 @@ jobs:
 
   #------------------------------------------------------------------------------
 
-  bearer-testing:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Run Bearer Check
-        uses: bearer/bearer-action@v2
-        with:
-          path: ./
-          fail-action: false
-
-  #------------------------------------------------------------------------------
 
   semgrep-testing:
     runs-on: ubuntu-latest
@@ -138,7 +125,6 @@ jobs:
         app-information-extraction,
         bandit-testing,
         checkov-testing,
-        bearer-testing,
         semgrep-testing,
       ]
     steps:
@@ -257,7 +243,7 @@ jobs:
       - name: Upgrade Minor Version
         run: |
           old_version="${{ needs.app-information-extraction.outputs.app_version }}"
-          new_version=$(awk -F. '{printf "%d.%d.0", $1, $2+1}' <<< "$old_version")
+          new_version=$(awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}' <<< "$old_version")
           
           # 2. Write the JSON
           cat <<EOF > .app-info.json

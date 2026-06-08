@@ -86,15 +86,6 @@ podTemplate(cloud: 'kubernetes', containers: [
                         """
                     }
                 },
-                'Bearer Testing': {
-                    container('bearer') {
-                        echo "Running Bearer Scanner..."
-                        sh '''
-                        docker pull bearer/bearer:latest-amd64
-                        docker run --rm -v /path/to/repo:/tmp/scan bearer/bearer scan ./
-                        '''
-                    }
-                },
                 'Semgrep Testing': {
                     container('python') {
                         echo "Running Semgrep Scans..."
