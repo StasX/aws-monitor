@@ -1,6 +1,5 @@
 FROM python:3.14.4-slim
 ARG APP_HOST="0.0.0.0"
-RUN pip uninstall ecdsa
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl && \
