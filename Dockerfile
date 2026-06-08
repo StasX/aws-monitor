@@ -1,9 +1,10 @@
-FROM python:3.14.4-alpine3.22
+FROM python:3.14.4-slim
 ARG APP_HOST="0.0.0.0"
 RUN pip uninstall ecdsa
-RUN apk update && \
-    apk upgrade && \
-    apk add --no-cache curl
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 RUN python -m venv env
