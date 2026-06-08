@@ -17,7 +17,8 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'alpine', 
         image: 'alpine:latest', // Use the latest stable Alpine image
-        command: 'sh', // Don't terminate immediately
+        command: 'sleep', // Don't terminate immediately
+        args: '1d'
     ),
     containerTemplate(
         name: 'python', 
