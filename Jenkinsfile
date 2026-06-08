@@ -15,6 +15,11 @@ podTemplate(cloud: 'kubernetes', containers: [
         args: '--storage-driver=vfs'
     ),
     containerTemplate(
+        name: 'alpine', 
+        image: 'alpine:latest', // Use the latest stable Alpine image
+        command: 'sh', // Don't terminate immediately
+    ),
+    containerTemplate(
         name: 'python', 
         image: 'python:3.13', // Use the latest stable Python image
         command: 'sleep', // Don't terminate immediately
@@ -38,9 +43,10 @@ podTemplate(cloud: 'kubernetes', containers: [
                 sh 'git config --global http.sslVerify false'
                 checkout scm
             }
-            container('jnlp') {
+            container('alpine') {
                 echo "Extracting metadata from .app-info.json..."
                 sh "apt-get update && apt-get install -y jq"
+                
                 appInfo["name"] = sh(
                     script: "jq -r '.name' .app-info.json",
                     returnStdout: true
