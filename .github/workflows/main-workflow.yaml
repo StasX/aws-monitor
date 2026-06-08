@@ -4,10 +4,11 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - 'README.md'
-      - 'project.toml'
-      - '.github/workflows/**'
-      - 'Jenkinsfile'
+      - "README.md"
+      - "project.toml"
+      - ".github/workflows/**"
+      - "Jenkinsfile"
+      - ".app-info.json"
 
 jobs:
   app-information-extraction:
@@ -23,256 +24,293 @@ jobs:
         with:
           sparse-checkout: |
             project.toml
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-
-      - name: Parse project.toml and set outputs
+      - name: Export app information
         id: parse
         run: |
-          python3 -c "
-          import tomllib, os
-          with open('project.toml', 'rb') as f: 
-              d = tomllib.load(f)
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
-              out.write(f'app_name={d[\"project\"][\"name\"]}\n')
-              out.write(f'image_name={d[\"project\"][\"name\"]}\n'.lower())
-              out.write(f'app_version={d[\"project\"][\"version\"]}\n')
-              out.write(f'app_description={d[\"project\"][\"description\"]}\n')
-          "
+          {
+            echo "app_name=$( jq -Qo './.app-info.json | .name')"
+            echo "image_name=$( jq -Qo './.app-info.json | .name' | tr' [:lower:]' )"
+            echo "app_version=$( jq -Qo './.app-info.json | .version' )"
+            echo "app_description=$( jq -Qo './.app-info.json | .description' )"
+          } >> $GITHUB_OUTPUT
+      # - name: Set up Python
+      #   uses: actions/setup-python@v6
+      #   with:
+      #     python-version: '3.13'
 
-#------------------------------------------------------------------------------
+      # - name: Parse project.toml and set outputs
+      #   id: parse
+      #   run: |
+      #     python3 -c "
+      #     import tomllib, os
+      #     with open('project.toml', 'rb') as f:
+      #         d = tomllib.load(f)
+      #     with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+      #         out.write(f'app_name={d[\"project\"][\"name\"]}\n')
+      #         out.write(f'image_name={d[\"project\"][\"name\"]}\n'.lower())
+      #         out.write(f'app_version={d[\"project\"][\"version\"]}\n')
+      #         out.write(f'app_description={d[\"project\"][\"description\"]}\n')
+      #     "
+
+  #------------------------------------------------------------------------------
 
   bandit-testing:
     runs-on: ubuntu-latest
     steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            ./
 
-    - name: checkout
-      uses: actions/checkout@v6
-      with:
-        sparse-checkout: |
-          ./
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.13'
+      - name: Install Bandit
+        run: pip install bandit
 
-    - name: Install Bandit
-      run: pip install bandit
+      - name: Run Bandit
+        run: bandit -r ./ -x ./.venv,./venv
 
-    - name: Run Bandit
-      run: bandit -r ./ -x ./.venv,./venv
-
-#------------------------------------------------------------------------------
+  #------------------------------------------------------------------------------
 
   checkov-testing:
     runs-on: ubuntu-latest
     steps:
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            chart
+            Dockerfile
 
-    - name: checkout
-      uses: actions/checkout@v6
-      with:
-        sparse-checkout: |
-          chart
-          Dockerfile
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.14'
+      - name: Install Checkov
+        run: pip install checkov
+      - name: Run Checkov on Helm Chart
+        run: checkov -d ./chart --framework helm
+      - name: Run Checkov on Dockerfile
+        run: checkov -f Dockerfile --framework dockerfile
 
-    - name: Install Checkov
-      run: pip install checkov
-    - name: Run Checkov on Helm Chart
-      run: checkov -d ./chart --framework helm
-    - name: Run Checkov on Dockerfile
-      run: checkov -f Dockerfile --framework dockerfile
-
-#------------------------------------------------------------------------------
+  #------------------------------------------------------------------------------
 
   bearer-testing:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Run Bearer Check
-      uses: bearer/bearer-action@v2
-      with:
-        path: ./
-        only-language: python
-        fail-action: false
+      - name: Run Bearer Check
+        uses: bearer/bearer-action@v2
+        with:
+          path: ./
+          only-language: python
+          fail-action: false
 
-#------------------------------------------------------------------------------
+  #------------------------------------------------------------------------------
 
   semgrep-testing:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.13'
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
 
-    - name: Install Semgrep
-      run: pip install semgrep
+      - name: Install Semgrep
+        run: pip install semgrep
 
-    - name: Run Semgrep Scan
-      # Added 'p/jenkinsfile' to the scan configs
-      run: |
-        semgrep scan \
-        --config=p/python \
-        --config=p/dockerfile \
-        --config=p/kubernetes \
-        --config=p/github-actions \
-        --metrics=off \
-        --error
+      - name: Run Semgrep Scan
+        # Added 'p/jenkinsfile' to the scan configs
+        run: |
+          semgrep scan \
+          --config=p/python \
+          --config=p/dockerfile \
+          --config=p/kubernetes \
+          --config=p/github-actions \
+          --metrics=off \
+          --error
 
-#------------------------------------------------------------------------------
+  #------------------------------------------------------------------------------
 
   docker:
     runs-on: ubuntu-latest
     environment: DOCKERHUB_USERNAME
-    needs: [app-information-extraction, bandit-testing, checkov-testing, bearer-testing, semgrep-testing]
+    needs:
+      [
+        app-information-extraction,
+        bandit-testing,
+        checkov-testing,
+        bearer-testing,
+        semgrep-testing,
+      ]
     steps:
+      - name: checkout
+        uses: actions/checkout@v6
 
-    - name: checkout
-      uses: actions/checkout@v6
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v4
-      with:
-        username: ${{ vars.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
-    
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v4
-    
-    - name: Build Docker Image
-      uses: docker/build-push-action@v7
-      with:
-        context: .
-        push: false
-        load: true
-        tags: |
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
 
-    - name: Generate Trivy Vulnerability Report
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: "image"
-        output: trivy-report.json
-        format: json
-        scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
-        exit-code: 0
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-    - name: Upload Vulnerability Scan Results
-      uses: actions/upload-artifact@v4
-      with:
-        name: trivy-report
-        path: trivy-report.json
-        retention-days: 30
+      - name: Build Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+            ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-    - name: Fail build on High/Criticial Vulnerabilities
-      uses: aquasecurity/trivy-action@v0.36.0
-      with:
-        scan-type: "image"
-        format: table
-        scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
-        severity: HIGH,CRITICAL
-        ignore-unfixed: true
-        exit-code: 1
-        skip-setup-trivy: true
+      - name: Generate Trivy Vulnerability Report
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: "image"
+          output: trivy-report.json
+          format: json
+          scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+          exit-code: 0
 
-    - name: Push image to Docker Hub
-      uses: docker/build-push-action@v7
-      with:
-        context: .
-        push: true 
-        tags: |
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
-          ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:latest
-        cache-from: type=gha
+      - name: Upload Vulnerability Scan Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+          retention-days: 30
 
-#------------------------------------------------------------------------------
+      - name: Fail build on High/Criticial Vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: "image"
+          format: table
+          scan-ref: ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: 1
+          skip-setup-trivy: true
+
+      - name: Push image to Docker Hub
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:${{ needs.app-information-extraction.outputs.app_version }}
+            ${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}:latest
+          cache-from: type=gha
+
+  #------------------------------------------------------------------------------
 
   deployment:
     runs-on: ubuntu-latest
     needs: [app-information-extraction, docker]
     environment: DOCKERHUB_USERNAME
     steps:
-    - name: checkout
-      uses: actions/checkout@v6
-      with:
-        sparse-checkout: |
-          chart
+      - name: checkout
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            chart
 
-    - name: clone-gitops-repo
-      uses: actions/checkout@v6
-      with:
-        repository: "StasX/argo-gitops"
-        ref: main
-        path: argo-gitops
-        token: ${{ secrets.GITOPS_TOKEN }}
+      - name: clone-gitops-repo
+        uses: actions/checkout@v6
+        with:
+          repository: "StasX/argo-gitops"
+          ref: main
+          path: argo-gitops
+          token: ${{ secrets.GITOPS_TOKEN }}
 
-    - name: deploy
-      run: |
-        helm template test ./chart \
-        --set-string pod.image="${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}" \
-        --set-string pod.tag="${{ needs.app-information-extraction.outputs.app_version }}" \
-        --set-string pod.name="${{ needs.app-information-extraction.outputs.app_name }}" \
-        --set secret.enabled=false > argo-gitops/application.yaml
-        git config --global user.name ${{ secrets.GH_USER }}
-        git config --global user.email ${{ secrets.GH_MAIL }}
-        git -C argo-gitops add application.yaml
-        git -C argo-gitops commit -m "Update application.yaml"
-        git -C argo-gitops push origin main --force
+      - name: deploy
+        run: |
+          helm template test ./chart \
+          --set-string pod.image="${{ vars.DOCKERHUB_USERNAME }}/${{ needs.app-information-extraction.outputs.image_name }}" \
+          --set-string pod.tag="${{ needs.app-information-extraction.outputs.app_version }}" \
+          --set-string pod.name="${{ needs.app-information-extraction.outputs.app_name }}" \
+          --set secret.enabled=false > argo-gitops/application.yaml
+          git config --global user.name ${{ secrets.GH_USER }}
+          git config --global user.email ${{ secrets.GH_MAIL }}
+          git -C argo-gitops add application.yaml
+          git -C argo-gitops commit -m "Update application.yaml"
+          git -C argo-gitops push origin main --force
 
-#------------------------------------------------------------------------------
+  #------------------------------------------------------------------------------
 
   upgrade-version:
     runs-on: ubuntu-latest
     needs: [app-information-extraction, deployment]
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v6
-      with:
-        sparse-checkout: |
-          project.toml
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          sparse-checkout: |
+            .app-info.json
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.14'
+      - name: Upgrade Minor Version
+        run: |
+          old_version="${{ needs.app-information-extraction.outputs.app_version }}"
+          new_version=$(awk -F. '{printf "%d.%d.0", $1, $2+1}' <<< "$old_version")
+          
+          # 2. Write the JSON
+          cat <<EOF > .app-info.json
+          {
+            "name": "${{ needs.app-information-extraction.outputs.app_name }}",
+            "version": "$new_version",
+            "description": "${{ needs.app-information-extraction.outputs.app_description }}"
+          }
+          EOF
+                  git config --global user.name "${{ secrets.GH_USER }}"
+          git config --global user.email "${{ secrets.GH_MAIL }}"
+          git add .app-info.json
+          git commit -m "Update next app version in .app-info.json"
+          git push origin main
+      # - name: Set up Python
+      #   uses: actions/setup-python@v6
+      #   with:
+      #     python-version: "3.14"
 
-    - name: Upgrade Minor Version
-      run: |
-        python3 -c "
-        current_version = '${{ needs.app-information-extraction.outputs.app_version }}'
-        major, minor, patch = current_version.split('.')
-        new_version = f'{major}.{int(minor) + 1}.0'
-        with open('project.toml', 'r') as f:
-            content = f.read()
-        updated_content = content.replace(current_version, new_version)
-        with open('project.toml', 'w') as f:
-            f.write(updated_content)
-        print(f'Bumped version from {current_version} to {new_version}')
-        "
-    - name: Commit and Push Version Bump
-      run: |
-        git config --global user.name "${{ secrets.GH_USER }}"
-        git config --global user.email "${{ secrets.GH_MAIL }}"
-        git add project.toml
-        git commit -m "Update next app version in project.toml"
-        git push origin main
+      # - name: Upgrade Minor Version
+      #   run: |
+      #     python3 -c "
+      #     current_version = '${{ needs.app-information-extraction.outputs.app_version }}'
+      #     major, minor, patch = current_version.split('.')
+      #     new_version = f'{major}.{int(minor) + 1}.0'
+      #     with open('project.toml', 'r') as f:
+      #         content = f.read()
+      #     updated_content = content.replace(current_version, new_version)
+      #     with open('project.toml', 'w') as f:
+      #         f.write(updated_content)
+      #     print(f'Bumped version from {current_version} to {new_version}')
+      #     "
+      # - name: clone-main-repo
+      #   uses: actions/checkout@v6
+      #   with:
+      #     repository: "StasX/HELM-Exam"
+      #     ref: main
+      #     path: HELM-Exam
+      #     token: ${{ secrets.GITOPS_TOKEN }}
+      # - name: Commit and Push Updated Version
+      #   run: |
+      #     git config --global user.name "${{ secrets.GH_USER }}"
+      #     git config --global user.email "${{ secrets.GH_MAIL }}"
+      #     git add .app-info.json
+      #     git commit -m "Update next app version in .app-info.json"
+      #     git push origin main
