@@ -3,7 +3,7 @@ ARG APP_HOST="0.0.0.0"
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     python -m pip install --upgrade pip
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 WORKDIR /app
