@@ -6,3 +6,5 @@ chart/
 .gitignore
 jenkinsfile
 .app-info.json
+project.toml
+.github/workflows/**
