@@ -109,12 +109,13 @@ podTemplate(cloud: 'kubernetes', containers: [
                 }
             )
         }
-        // stage('Build Docker Image') {
-        //     container('docker') {
-        //       echo "Building docker image..."
-        //       sh "docker build -t ${appimage}:${apptag} ."
-        //     }
-        // }
+        stage('Build Docker Image') {
+            container('docker') {
+              echo "Building docker image..."
+              sh "docker build -t docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']} ."
+            }
+        }
+
         // stage('Push Docker Image') {
         //     container('docker') {              
         //       echo "Tagging docker image..."
