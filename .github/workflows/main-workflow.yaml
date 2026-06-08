@@ -10,6 +10,9 @@ on:
       - "Jenkinsfile"
       - ".app-info.json"
 
+permissions:
+  contents: read
+
 jobs:
   app-information-extraction:
     runs-on: ubuntu-latest
@@ -244,6 +247,8 @@ jobs:
   upgrade-version:
     runs-on: ubuntu-latest
     needs: [app-information-extraction, deployment]
+    permissions:
+      contents: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
