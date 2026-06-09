@@ -161,16 +161,17 @@ podTemplate(cloud: 'kubernetes', containers: [
         //         }
         //     }
         // }
-            post {
-            // Clean after build
-            always {
-                cleanWs(cleanWhenNotBuilt: true,
-                        deleteDirs: true,
-                        disableDeferredWipeout: true,
-                        notFailBuild: true
-                        )
+        stage('Cleanup Workspace') {
+            container('jnlp') {
+                echo "Cleaning up workspace..."
+                cleanWs(
+                    cleanWhenNotBuilt: true,
+                    deleteDirs: true,
+                    disableDeferredWipeout: true,
+                    notFailBuild: true
+                )
             }
-        }
+        }       
     }
 
 }
