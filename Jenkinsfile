@@ -150,6 +150,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('helm') {
                 echo "Deploying to Kubernetes using Helm..."
                 sh """
+                    mkdir argo-gitops
                     helm template test ./chart \
                     --set-string pod.image="${ dockerUser }/${ appInfo['image_name'] }" \
                     --set-string pod.tag="${ appInfo['version'] }" \
