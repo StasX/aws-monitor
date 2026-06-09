@@ -33,13 +33,17 @@ podTemplate(cloud: 'kubernetes', containers: [
         args: '1d'
     )], 
   volumes: [
-    emptyDirVolume(mountPath: '/var/lib/docker', memory: false),
-    emptyDirVolume(mountPath: '/home/jenkins', memory: false)
+    emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
   ]) {
     node(POD_LABEL) {
         def appInfo = [:]// Define shared map for extracted app information across stages
+        options {
+            skipDefaultCheckout(true)
+        }
         stage('Checkout & Extract App Information') {
             container('jnlp') {
+                // Ensure that work space clean
+                clearWs() 
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
@@ -157,6 +161,17 @@ podTemplate(cloud: 'kubernetes', containers: [
         //         }
         //     }
         // }
+            post {
+            // Clean after build
+            always {
+                cleanWs(cleanWhenNotBuilt: true,
+                        deleteDirs: true,
+                        disableDeferredWipeout: true,
+                        notFailBuild: true
+                        )
+            }
+        }
     }
+
 }
 
