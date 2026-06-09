@@ -8,3 +8,7 @@ jenkinsfile
 .app-info.json
 .github/workflows/
 venv/
+.venv/
+.git/
+.github/
+.env/
