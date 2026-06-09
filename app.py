@@ -59,34 +59,75 @@ def home():
             <body>
                 <h1>Running EC2 Instances</h1>
                 <table border='1'>
-                <tr><th>ID</th><th>State</th><th>Type</th><th>Public IP</th></tr>
-                {% for instance in instance_data %}
-                <tr><td>{{ instance['ID'] }}</td><td>{{ instance['State'] }}</td><td>{{ instance['Type'] }}</td><td>{{ instance['Public IP'] }}</td></tr>
-                {% endfor %}
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>State</th>
+                        <th>Type</th>
+                        <th>Public IP</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                        {% for instance in instance_data %}
+                            <tr>
+                                <td>{{ instance['ID'] }}</td>
+                                <td>{{ instance['State'] }}</td>
+                                <td>{{ instance['Type'] }}</td>
+                                <td>{{ instance['Public IP'] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
-      
+     
                 <h1>VPCs</h1>
                 <table border='1'>
-                    <tr><th>VPC ID</th><th>CIDR</th></tr>
-                    {% for vpc in vpc_data %}
-                    <tr><td>{{ vpc['VPC ID'] }}</td><td>{{ vpc['CIDR'] }}</td></tr>
-                    {% endfor %}
+                    <thead>
+                        <tr>
+                            <th>VPC ID</th>
+                            <th>CIDR</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vpc in vpc_data %}
+                            <tr>
+                                <td>{{ vpc['VPC ID'] }}</td>
+                                <td>{{ vpc['CIDR'] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
-      
+
                 <h1>Load Balancers</h1>
                 <table border='1'>
-                    <tr><th>LB Name</th><th>DNS Name</th></tr>
-                    {% for lb in lb_data %}
-                        <tr><td>{{ lb['LB Name'] }}</td><td>{{ lb['DNS Name'] }}</td></tr>
-                    {% endfor %}
+                    <thead>
+                        <tr>
+                            <th>LB Name</th>
+                            <th>DNS Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for lb in lb_data %}
+                            <tr><td>{{ lb['LB Name'] }}</td><td>{{ lb['DNS Name'] }}</td></tr>
+                        {% endfor %}
+                    </tbody>
                 </table>
       
                 <h1>Available AMIs</h1>
                 <table border='1'>
-                    <tr><th>AMI ID</th><th>Name</th></tr>
-                    {% for ami in ami_data %}
-                        <tr><td>{{ ami['AMI ID'] }}</td><td>{{ ami['Name'] }}</td></tr>
-                    {% endfor %}
+                    <thead>
+                        <tr>
+                            <th>AMI ID</th>
+                            <th>Name</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ami in ami_data %}
+                            <tr>
+                                <td>{{ ami['AMI ID'] }}</td>
+                                <td>{{ ami['Name'] }}</td>
+                            </tr>
+                        {% endfor %}
+                    <tbody>
                 </table>
             </body>
         </html>"""
