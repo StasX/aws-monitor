@@ -203,22 +203,32 @@ podTemplate(cloud: 'kubernetes', containers: [
                     def newVersion = "${major}.${minor}.${newPatch}"
                     def name = appInfo['app_name']
                     def description = appInfo['description']
-                    sh '''
-                        cat <<EOF > .app-info.json
-                        {
-                            "name": "$name",
-                            "version": "$newVersion",
-                            "description": "$description"
-                        }
-                        EOF
-                        git config user.name "$GH_USER"
-                        git config user.email "$email"
+                    withEnv([
+                        "GITHUB_REPO_OWNER=${githubRepoOwner}",
+                        "CURRENT_REPO=${currentRepo}",
+                        "GIT_EMAIL=${email}",
+                        "APP_NAME=${appInfo['app_name']}",
+                        "APP_DESCRIPTION=${appInfo['description']}",
+                        "NEW_VERSION=${newVersion}"
+                    ]) {
+                        sh '''
+                            cat > .app-info.json <<EOF
+                            {
+                            "name": "$APP_NAME",
+                            "version": "$NEW_VERSION",
+                            "description": "$APP_DESCRIPTION"
+                            }
+                            EOF
+                            git config user.name "$GH_USER"
+                            git config user.email "$GIT_EMAIL"
+                            
+                            git add .app-info.json
+                            git commit -m "Update next app version in .app-info.json"
 
-                        git add .app-info.json
-                        git commit -m "Update next app version in .app-info.json"
-                        git remote set-url origin https://$($GH_USER):$($GH_TOKEN)@github.com/$($githubRepoOwner)/$($currentRepo).git
-                        git push origin main --force
-                    '''
+                            git remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$CURRENT_REPO.git
+                            git push origin main
+                        '''
+                    }
                 }
             }
         }
