@@ -40,7 +40,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Checkout & Extract App Information') {
             container('jnlp') {
                 // Ensure that work space clean
-                clearWs() 
+                cleanWs() 
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
