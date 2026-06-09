@@ -149,15 +149,13 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Helm Template') {
             container('helm') {
                 echo "Deploying to Kubernetes using Helm..."
-                withCredentials([usernamePassword(credentialsId: "aws-keys", usernameVariable: "AWS_ACCESS_KEY_ID", passwordVariable: "AWS_SECRET_ACCESS_KEY")]) {
-                    sh """
-                        helm template test ./chart \
-                        --set-string pod.image="${ dockerUser }/${ appInfo['image_name'] }" \
-                        --set-string pod.tag="${ appInfo['version'] }" \
-                        --set-string pod.name="${appInfo['app_name']}" \
-                        --set secret.enabled=false > argo-gitops/application.yaml
-                      """
-                }
+                sh """
+                    helm template test ./chart \
+                    --set-string pod.image="${ dockerUser }/${ appInfo['image_name'] }" \
+                    --set-string pod.tag="${ appInfo['version'] }" \
+                    --set-string pod.name="${appInfo['app_name']}" \
+                    --set secret.enabled=false > argo-gitops/application.yaml
+                    """
             }
         }
         stage('Cleanup Workspace') {
