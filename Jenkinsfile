@@ -198,7 +198,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 usernameVariable: 'GH_USER', 
                 passwordVariable: 'GH_TOKEN')]) {
                     def oldVersion = appInfo["version"]
-                    def (major, minor, patch) = oldVersion.split(".")
+                    def (major, minor, patch) = oldVersion.tokenize('.')
                     def newPatch = patch.toInteger() + 1
                     def newVersion = "${major}.${minor}.${newPatch}"
                     def name = appInfo['app_name']
