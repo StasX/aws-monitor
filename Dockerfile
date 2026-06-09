@@ -1,11 +1,10 @@
-FROM python:3.14.4-slim
+FROM python:3.14.4-alpine3.23
 ARG APP_HOST="0.0.0.0"
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/* && \
+RUN apk update && \
+    apk upgrade --no-cache && \
+    apk add --no-cache curl && \
     python -m pip install --upgrade pip
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 WORKDIR /app
 RUN python -m venv env
 COPY requirements.txt .
