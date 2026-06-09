@@ -171,7 +171,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
                 passwordVariable: 'GH_TOKEN')]) {
-                    sh """
+                    sh '''
                         git config user.name "${GH_USER}"
                         git config user.email "${email}"
                         git clone https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${gitOpsRepo}.git
@@ -181,7 +181,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                         git -C ${gitOpsRepo} commit -m "Update application.yaml"
                         git -C ${gitOpsRepo} remote set-url origin https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${gitOpsRepo}.git
                         git -C ${gitOpsRepo} push origin main --force
-                    """
+                    '''
                 }
             }
         }
@@ -195,7 +195,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                     def (major, minor, patch) = oldVersion.split(".")
                     def newPatch = patch.toInteger() + 1
                     def newVersion = "${major}.${minor}.${newPatch}"
-                    sh """
+                    sh '''
                         cat <<EOF > .app-info.json
                         {
                             "name": "${ appInfo['app_name'] }",
@@ -210,7 +210,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                         git commit -m "Update next app version in .app-info.json"
                         git remote set-url origin https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${currentRepo}.git
                         git push origin main --force
-                    """
+                    '''
                 }
             }
         }
