@@ -13,8 +13,8 @@ podTemplate(cloud: 'kubernetes', containers: [
         args: '--storage-driver=vfs'
     ),
     containerTemplate(
-        name: 'ubuntu', 
-        image: 'ubuntu:22.04',
+        name: 'alpine', 
+        image: 'alpine:latest',
         command: 'sleep', // Don't terminate immediately
         args: '1d'
     ),
@@ -43,12 +43,9 @@ podTemplate(cloud: 'kubernetes', containers: [
                 sh 'git config --global http.sslVerify false'
                 checkout scm
             }
-            container('ubuntu') {
+            container('alpine') {
                 echo "Extracting metadata from .app-info.json..."
-                sh """
-                apt-get update && \
-                apt-get install -y jq
-                """
+                sh  "apk add --no-cache jq"
                 
                 appInfo["app_name"] = sh(
                     script: "jq -r '.name' .app-info.json",
