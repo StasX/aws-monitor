@@ -130,22 +130,20 @@ podTemplate(cloud: 'kubernetes', containers: [
                 """
             }
         }
-        // stage('Push Docker Image') {
-        //     container('docker') {              
-        //       echo "Tagging docker image..."
-        //       sh "docker tag ${appimage}:${apptag} ${appimage}:latest"
+        stage('Tag and Push Docker Image') {
+            container('docker') {              
+              echo "Tagging docker image..."
+              sh "docker tag docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']} ${appInfo['image_name']}:latest"
+              echo "Logging in to Docker registry..."
+              withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
+                sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
+              }
+              echo "Pushing docker image to registry..."
+              sh "docker push docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']}"
+              sh "docker push  docker.io/${repo}/${appInfo['image_name']}:latest"
 
-        //       echo "Logging in to Docker registry..."
-        //       withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
-        //         sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
-        //       }
-
-        //       echo "Pushing docker image to registry..."
-        //       sh "docker push ${appimage}:${apptag}"
-        //       sh "docker push  ${appimage}:latest"
-
-        //     }
-        // } //end push docker image
+            }
+        }
         // stage('Helm Template') {
         //     container('helm') {
         //         echo "Deploying to Kubernetes using Helm..."
