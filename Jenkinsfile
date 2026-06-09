@@ -133,7 +133,11 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Tag and Push Docker Image') {
             container('docker') {              
               echo "Tagging docker image..."
-              sh "docker tag docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']} ${appInfo['image_name']}:latest"
+              sh """
+              docker tag \
+              docker.io/${repo}/${appInfo['image_name']}:${appInfo['version']} \
+              docker.io/${repo}/${appInfo['image_name']}:latest
+              """
               echo "Logging in to Docker registry..."
               withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
                 sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
