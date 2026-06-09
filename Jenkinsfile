@@ -171,17 +171,29 @@ podTemplate(cloud: 'kubernetes', containers: [
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
                 passwordVariable: 'GH_TOKEN')]) {
-                    sh """
-                        git config user.name "${GH_USER}"
-                        git config user.email "${email}"
-                        git clone https://github.com/${githubRepoOwner}/${gitOpsRepo}.git
-                        mv temp/application.yaml argo-gitops/application.yaml
+                    withEnv([
+                    "GITHUB_REPO_OWNER=${githubRepoOwner}",
+                    "GITOPS_REPO=${gitOpsRepo}",
+                    "GIT_EMAIL=${email}"
+                    ]) {
+                        sh '''
 
-                        git -C ${gitOpsRepo} add application.yaml
-                        git -C ${gitOpsRepo} commit -m "Update application.yaml"
-                        git -C ${gitOpsRepo} remote set-url origin https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${gitOpsRepo}.git
-                        git -C ${gitOpsRepo} push origin main --force
-                    """
+                            git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                            cp temp/application.yaml "$GITOPS_REPO/application.yaml"
+                            git -C "$GITOPS_REPO" config user.name "$GH_USER"
+                            git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
+                            git -C "$GITOPS_REPO" add application.yaml
+                            git -C "$GITOPS_REPO" commit -m "Update application.yaml" || echo "Nothing to commit"
+                            git -C "$GITOPS_REPO" remote set-url origin https://$GH_USER:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                            git -C "$GITOPS_REPO" push origin main
+                            mv temp/application.yaml $gitOpsRepo/application.yaml
+
+                            git -C $gitOpsRepo add application.yaml
+                            git -C $gitOpsRepo commit -m "Update application.yaml"
+                            git -C $gitOpsRepo remote set-url origin https://$($GH_USER):$($GH_TOKEN)@github.com/$githubRepoOwner/$($gitOpsRepo).git
+                            git -C $gitOpsRepo push origin main --force
+                        '''
+                    }
                 }
             }
         }
@@ -195,22 +207,24 @@ podTemplate(cloud: 'kubernetes', containers: [
                     def (major, minor, patch) = oldVersion.split(".")
                     def newPatch = patch.toInteger() + 1
                     def newVersion = "${major}.${minor}.${newPatch}"
-                    sh """
+                    def name = appInfo['app_name']
+                    def description = appInfo['description']
+                    sh '''
                         cat <<EOF > .app-info.json
                         {
-                            "name": "${ appInfo['app_name'] }",
-                            "version": "${newVersion}",
-                            "description": "${appInfo['description']}"
+                            "name": "$name",
+                            "version": "$newVersion",
+                            "description": "$description"
                         }
                         EOF
-                        git config user.name "${GH_USER}"
-                        git config user.email "${email}"
+                        git config user.name "$GH_USER"
+                        git config user.email "$email"
 
                         git add .app-info.json
                         git commit -m "Update next app version in .app-info.json"
-                        git remote set-url origin https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${currentRepo}.git
+                        git remote set-url origin https://$($GH_USER):$($GH_TOKEN)@github.com/$($githubRepoOwner)/$($currentRepo).git
                         git push origin main --force
-                    """
+                    '''
                 }
             }
         }
