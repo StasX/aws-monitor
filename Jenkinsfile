@@ -47,8 +47,8 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('ubuntu') {
                 echo "Extracting metadata from .app-info.json..."
                 sh """
-                sudo apt-get update && \
-                sudo apt-get install -y jq
+                apt-get update && \
+                apt-get install -y jq
                 """
                 
                 appInfo["name"] = sh(
