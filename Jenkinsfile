@@ -174,7 +174,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                     sh '''
                         git config user.name "${GH_USER}"
                         git config user.email "${email}"
-                        git clone https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${gitOpsRepo}.git
+                        git clone https://github.com/${githubRepoOwner}/${gitOpsRepo}.git
                         mv temp/application.yaml argo-gitops/application.yaml
 
                         git -C ${gitOpsRepo} add application.yaml
