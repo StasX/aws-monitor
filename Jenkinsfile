@@ -152,7 +152,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 withCredentials([usernamePassword(credentialsId: "aws-keys", usernameVariable: "AWS_ACCESS_KEY_ID", passwordVariable: "AWS_SECRET_ACCESS_KEY")]) {
                     sh """
                         helm template test ./chart \
-                        --set-string pod.image="${{ dockerUser }}/${ appInfo['image_name'] }" \
+                        --set-string pod.image="${ dockerUser }/${ appInfo['image_name'] }" \
                         --set-string pod.tag="${ appInfo['version'] }" \
                         --set-string pod.name="${appInfo['app_name']}" \
                         --set secret.enabled=false > argo-gitops/application.yaml
