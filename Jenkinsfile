@@ -177,21 +177,15 @@ podTemplate(cloud: 'kubernetes', containers: [
                     "GIT_EMAIL=${email}"
                     ]) {
                         sh '''
-
                             git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                            cp temp/application.yaml "$GITOPS_REPO/application.yaml"
+                            mv temp/application.yaml "$GITOPS_REPO/application.yaml"
                             git -C "$GITOPS_REPO" config user.name "$GH_USER"
                             git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
                             git -C "$GITOPS_REPO" add application.yaml
-                            git -C "$GITOPS_REPO" commit -m "Update application.yaml" || echo "Nothing to commit"
-                            git -C "$GITOPS_REPO" remote set-url origin https://$GH_USER:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                            git -C "$GITOPS_REPO" commit -m "Update application.yaml"
+                            git -C "$GITOPS_REPO" remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
                             git -C "$GITOPS_REPO" push origin main
-                            mv temp/application.yaml $gitOpsRepo/application.yaml
-
-                            git -C $gitOpsRepo add application.yaml
-                            git -C $gitOpsRepo commit -m "Update application.yaml"
-                            git -C $gitOpsRepo remote set-url origin https://$($GH_USER):$($GH_TOKEN)@github.com/$githubRepoOwner/$($gitOpsRepo).git
-                            git -C $gitOpsRepo push origin main --force
+                            rm -r temp
                         '''
                     }
                 }
