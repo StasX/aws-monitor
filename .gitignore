@@ -4,3 +4,5 @@ docker-compose.yml
 __pycache__/
 set_secrets.ps1
 venv/
+temp/
+argo-gitops/

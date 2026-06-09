@@ -1,5 +1,8 @@
-def dockerUser = "sm1986"
-def githubUser = "StasX"
+def dockerRepoOwner = "sm1986"
+def githubRepoOwner = "StasX"
+def email = "s.mestechkin@gmail.com"
+def gitOpsRepo = "argo-gitops"
+def currentRepo = "HELM-Exam"
 
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
@@ -27,6 +30,12 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'helm', 
         image: 'alpine/helm', // Use the latest stable Helm image
+        command: 'sleep', // Don't terminate immediately
+        args: '1d'
+    ), 
+    containerTemplate(
+        name: 'git', 
+        image: 'alpine/git', // Use the latest stable Helm image
         command: 'sleep', // Don't terminate immediately
         args: '1d'
     )], 
@@ -111,7 +120,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Build Docker Image') {
             container('docker') {
               echo "Building docker image..."
-              sh "docker build -t docker.io/${dockerUser}/${appInfo['image_name']}:${appInfo['version']} ."
+              sh "docker build -t docker.io/${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']} ."
             }
         }
         stage('Trivy Scan') {
@@ -119,7 +128,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 echo "Running Trivy vulnerability scan on the built image..."
                 sh """
                 docker run -v /var/run/docker.sock:/var/run/docker.sock \
-                aquasec/trivy image ${dockerUser}/${appInfo['image_name']}:${appInfo['version']} \
+                aquasec/trivy image ${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']} \
                 --severity HIGH,CRITICAL \
                 --exit-code 1
                 """
@@ -130,16 +139,16 @@ podTemplate(cloud: 'kubernetes', containers: [
               echo "Tagging docker image..."
               sh """
               docker tag \
-              docker.io/${dockerUser}/${appInfo['image_name']}:${appInfo['version']} \
-              docker.io/${dockerUser}/${appInfo['image_name']}:latest
+              docker.io/${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']} \
+              docker.io/${dockerRepoOwner}/${appInfo['image_name']}:latest
               """
               echo "Logging in to Docker registry..."
               withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
                 sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
               }
               echo "Pushing docker image to registry..."
-              sh "docker push docker.io/${dockerUser}/${appInfo['image_name']}:${appInfo['version']}"
-              sh "docker push  docker.io/${dockerUser}/${appInfo['image_name']}:latest"
+              sh "docker push docker.io/${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']}"
+              sh "docker push  docker.io/${dockerRepoOwner}/${appInfo['image_name']}:latest"
 
             }
         }
@@ -147,17 +156,67 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('helm') {
                 echo "Deploying to Kubernetes using Helm..."
                 sh """
-                    mkdir argo-gitops
+                    mkdir temp
                     helm template test ./chart \
-                    --set-string pod.image="${ dockerUser }/${ appInfo['image_name'] }" \
+                    --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
                     --set-string pod.tag="${ appInfo['version'] }" \
                     --set-string pod.name="${appInfo['app_name']}" \
-                    --set secret.enabled=false > argo-gitops/application.yaml
+                    --set secret.enabled=false > temp/application.yaml
                     """
             }
         }
+        stage('Push template'){
+            container('git'){
+                echo "Deploying..."
+                withCredentials([usernamePassword(credentialsId: 'github_creds', 
+                usernameVariable: 'GH_USER', 
+                passwordVariable: 'GH_TOKEN')]) {
+                    sh """
+                        git config user.name "${GH_USER}"
+                        git config user.email "${email}"
+                        git clone https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${gitOpsRepo}.git
+                        mv temp/application.yaml argo-gitops/application.yaml
+
+                        git -C ${gitOpsRepo} add application.yaml
+                        git -C ${gitOpsRepo} commit -m "Update application.yaml"
+                        git -C ${gitOpsRepo} remote set-url origin https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${gitOpsRepo}.git
+                        git -C ${gitOpsRepo} push origin main --force
+                    """
+                }
+            }
+        }
+        stage('Change App Version'){
+            container('git'){
+                echo "Changing ..."
+                withCredentials([usernamePassword(credentialsId: 'github_creds', 
+                usernameVariable: 'GH_USER', 
+                passwordVariable: 'GH_TOKEN')]) {
+                    def oldVersion = appInfo["version"]
+                    def (major, minor, patch) = oldVersion.split(".")
+                    def newPatch = patch.toInteger() + 1
+                    def newVersion = "${major}.${minor}.${newPatch}"
+                    sh """
+                        cat <<EOF > .app-info.json
+                        {
+                            "name": "${ appInfo['app_name'] }",
+                            "version": "${newVersion}",
+                            "description": "${appInfo['description']}"
+                        }
+                        EOF
+                        git config user.name "${GH_USER}"
+                        git config user.email "${email}"
+
+                        git add .app-info.json
+                        git commit -m "Update next app version in .app-info.json"
+                        git remote set-url origin https://${GH_USER}:${GH_TOKEN}@github.com/${githubRepoOwner}/${currentRepo}.git
+                        git push origin main --force
+                    """
+                }
+            }
+        }
+
         stage('Cleanup Workspace') {
-            container('jnlp') {
+            container('alpine') {
                 echo "Cleaning up workspace..."
                 cleanWs(
                     cleanWhenNotBuilt: true,
