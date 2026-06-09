@@ -37,9 +37,6 @@ podTemplate(cloud: 'kubernetes', containers: [
   ]) {
     node(POD_LABEL) {
         def appInfo = [:]// Define shared map for extracted app information across stages
-        options {
-            skipDefaultCheckout(true)
-        }
         stage('Checkout & Extract App Information') {
             container('jnlp') {
                 // Ensure that work space clean
