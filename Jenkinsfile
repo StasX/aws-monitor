@@ -4,16 +4,6 @@ def email = "s.mestechkin@gmail.com"
 def gitOpsRepo = "argo-gitops"
 def currentRepo = "AWS-Monitor"
 
-properties([
-    parameters([
-        choice(
-            name: 'ENVIRONMENT', 
-            choices: ['Development', 'QA', 'Production'], 
-            description: 'Select which environment you want to deploy'
-        )
-    ])
-])
-
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'jnlp', 
@@ -177,6 +167,17 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Push template'){
             container('git'){
+                def userInput = input(
+                id: 'Proceed', 
+                message: 'Select which environment you want to deploy', 
+                parameters: [
+                    choice(
+                        name: 'ENVIRONMENT', 
+                        choices: ['Development', 'QA', 'Production'], 
+                        description: 'Select which environment You want to deploy'
+                    )
+                ]
+                )
                 echo "Deploying..."
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
