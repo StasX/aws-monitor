@@ -2,7 +2,7 @@ def dockerRepoOwner = "sm1986"
 def githubRepoOwner = "StasX"
 def email = "s.mestechkin@gmail.com"
 def gitOpsRepo = "argo-gitops"
-def currentRepo = "HELM-Exam"
+def currentRepo = "AWS-Monitor"
 
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
