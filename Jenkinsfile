@@ -4,6 +4,16 @@ def email = "s.mestechkin@gmail.com"
 def gitOpsRepo = "argo-gitops"
 def currentRepo = "AWS-Monitor"
 
+properties([
+    parameters([
+        choice(
+            name: 'ENVIRONMENT', 
+            choices: ['Development', 'QA', 'Production'], 
+            description: 'Select which environment you want to deploy'
+        )
+    ])
+])
+
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'jnlp', 
