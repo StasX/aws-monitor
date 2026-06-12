@@ -201,22 +201,19 @@ podTemplate(cloud: 'kubernetes', containers: [
                         throw new Exception("Invalid  environment")
                     } 
                 } 
-                        sh """                        
-                            rm -rf temp && \
-                            mkdir  temp
-                            rm -rf manifests && \
-                            mkdir  manifests/${currentRepo}/${type}
-                            cp chart/* -r temp
-                            cp ${gitOpsRepo}/${dev}/values.yaml temp
-                            helm template ${currentRepo} ./temp \
-                            --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
-                            --set-string pod.tag="${ appInfo['version'] }" \
-                            --set-string pod.name="${appInfo['app_name']}" \
-                            --set secret.enabled=false > manifests/app.yaml
-                        """
-                        
-                    
-                }
+                sh """                        
+                    rm -rf temp && \
+                    mkdir  temp
+                    rm -rf manifests && \
+                    mkdir  manifests/${currentRepo}/${type}
+                    cp chart/* -r temp
+                    cp ${gitOpsRepo}/${dev}/values.yaml temp
+                    helm template ${currentRepo} ./temp \
+                    --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
+                    --set-string pod.tag="${ appInfo['version'] }" \
+                    --set-string pod.name="${appInfo['app_name']}" \
+                    --set secret.enabled=false > manifests/app.yaml
+                """
             }
         }
         stage('Push Manifest'){
@@ -249,18 +246,17 @@ podTemplate(cloud: 'kubernetes', containers: [
                     "ENV_SHORT_TYPE=${type}",
                     "GIT_EMAIL=${email}"
                     ]) {
-                            sh '''
-                                git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                                mv manifests/app.yaml "$GITOPS_REPO/manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml"
-                                git -C "$GITOPS_REPO" config user.name "$GH_USER"
-                                git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
-                                git -C "$GITOPS_REPO" add manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml
-                                git -C "$GITOPS_REPO" commit -m "Update application in $ENV_SHORT_TYPE environment"
-                                git -C "$GITOPS_REPO" remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                                git -C "$GITOPS_REPO" push origin main
-                                rm -r temp
-                            '''
-                        }
+                        sh '''
+                            git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                            mv manifests/app.yaml "$GITOPS_REPO/manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml"
+                            git -C "$GITOPS_REPO" config user.name "$GH_USER"
+                            git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
+                            git -C "$GITOPS_REPO" add manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml
+                            git -C "$GITOPS_REPO" commit -m "Update application in $ENV_SHORT_TYPE environment"
+                            git -C "$GITOPS_REPO" remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                            git -C "$GITOPS_REPO" push origin main
+                            rm -r temp
+                        '''
                     }
                 }
             }
