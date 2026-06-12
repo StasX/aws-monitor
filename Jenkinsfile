@@ -2,7 +2,8 @@ def dockerRepoOwner = "sm1986"
 def githubRepoOwner = "StasX"
 def email = "s.mestechkin@gmail.com"
 def gitOpsRepo = "argo-gitops"
-def currentRepo = "AWS-Monitor"
+def currentRepo = "aws-monitor"
+def envType = ""
 
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
@@ -152,24 +153,11 @@ podTemplate(cloud: 'kubernetes', containers: [
 
             }
         }
-        stage('Helm Template') {
-            container('helm') {
-                echo "Deploying to Kubernetes using Helm..."
-                sh """
-                    mkdir temp
-                    helm template test ./chart \
-                    --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
-                    --set-string pod.tag="${ appInfo['version'] }" \
-                    --set-string pod.name="${appInfo['app_name']}" \
-                    --set secret.enabled=false > temp/application.yaml
-                    """
-            }
-        }
-        stage('Push template'){
-            container('git'){
-                def userInput = input(
+        
+        stage('Select environment') {
+                envType = input(
                 id: 'Proceed', 
-                message: 'Select which environment you want to deploy', 
+                message: 'Select which environment you want to deploy',
                 parameters: [
                     choice(
                         name: 'ENVIRONMENT', 
@@ -178,26 +166,101 @@ podTemplate(cloud: 'kubernetes', containers: [
                     )
                 ]
                 )
-                echo "Deploying..."
+        }
+        stage('Clone GitOps Repo') {
+            container('git') {
+                echo "Deploying to Kubernetes using Helm..."
+                withEnv([
+                    "GITHUB_REPO_OWNER=${githubRepoOwner}",
+                    "GITOPS_REPO=${gitOpsRepo}"
+                ]) {
+                    sh '''
+                        git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                    '''
+                }
+            }
+        }
+        stage('Create Manifest') {
+            container('helm') {
+                echo "Prepare HELM manifest for ${envType} environment..."
+                def type = ""
+                switch(envType){
+                    case 'Development' : {
+                        def type = "dev"
+                        break
+                    }
+                    case 'QA' : {
+                        def type = "qa"
+                        break
+                    }
+                    case 'Production' : {
+                        def type = "prod"
+                        break
+                    }
+                    default : {
+                        throw new Exception("Invalid  environment")
+                    } 
+                } 
+                        sh """                        
+                            rm -rf temp && \
+                            mkdir  temp
+                            rm -rf manifests && \
+                            mkdir  manifests/${currentRepo}/${type}
+                            cp chart/* -r temp
+                            cp ${gitOpsRepo}/${dev}/values.yaml temp
+                            helm template ${currentRepo} ./temp \
+                            --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
+                            --set-string pod.tag="${ appInfo['version'] }" \
+                            --set-string pod.name="${appInfo['app_name']}" \
+                            --set secret.enabled=false > manifests/app.yaml
+                        """
+                        
+                    
+                }
+            }
+        }
+        stage('Push Manifest'){
+            container('git'){
+                echo "Deploying to ${envType}..."
+                switch(envType){
+                    case 'Development' : {
+                        def type = "dev"
+                        break
+                    }
+                    case 'QA' : {
+                        def type = "qa"
+                        break
+                    }
+                    case 'Production' : {
+                        def type = "prod"
+                        break
+                    }
+                    default : {
+                        throw new Exception("Invalid  environment")
+                    } 
+                }
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
                 passwordVariable: 'GH_TOKEN')]) {
                     withEnv([
                     "GITHUB_REPO_OWNER=${githubRepoOwner}",
                     "GITOPS_REPO=${gitOpsRepo}",
+                    "CURRENT_REPO=${currentRepo}",
+                    "ENV_SHORT_TYPE=${type}",
                     "GIT_EMAIL=${email}"
                     ]) {
-                        sh '''
-                            git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                            mv temp/application.yaml "$GITOPS_REPO/application.yaml"
-                            git -C "$GITOPS_REPO" config user.name "$GH_USER"
-                            git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
-                            git -C "$GITOPS_REPO" add application.yaml
-                            git -C "$GITOPS_REPO" commit -m "Update application.yaml"
-                            git -C "$GITOPS_REPO" remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                            git -C "$GITOPS_REPO" push origin main
-                            rm -r temp
-                        '''
+                            sh '''
+                                git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                                mv manifests/app.yaml "$GITOPS_REPO/manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml"
+                                git -C "$GITOPS_REPO" config user.name "$GH_USER"
+                                git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
+                                git -C "$GITOPS_REPO" add manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml
+                                git -C "$GITOPS_REPO" commit -m "Update application in $ENV_SHORT_TYPE environment"
+                                git -C "$GITOPS_REPO" remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
+                                git -C "$GITOPS_REPO" push origin main
+                                rm -r temp
+                            '''
+                        }
                     }
                 }
             }

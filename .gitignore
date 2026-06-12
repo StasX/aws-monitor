@@ -6,3 +6,5 @@ set_secrets.ps1
 venv/
 temp/
 argo-gitops/
+manifest/
+manifests/

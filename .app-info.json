@@ -1,5 +1,9 @@
 {
-  "name": "AWS-Monitor",
-  "version": "1.1.16",
+  "name": "aws-monitor",
+  "version": {
+    "dev":"1.0.0",
+    "qa":"1.0.0",
+    "prod":"1.0.0"
+  },
   "description": "Monitoring Application for AWS"
 }
