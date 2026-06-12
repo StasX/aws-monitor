@@ -89,32 +89,28 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Build Docker Image') {
             container('docker') {
-              echo "Building docker image..."
-              sh "docker build -t docker.io/${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']} ."
+              dockers.build(dockerRepoOwner, image, version)
             }
         }
         stage('Trivy Scan') {
             container('docker') {
                 echo "Running Trivy vulnerability scan on the built image..."
-                security.trivyScan(String repoOwner, String image, String tag)
+                security.trivyScan(String githubRepoOwner, String image, String version)
             }
         }
-        stage('Tag and Push Docker Image') {
+        stage('Tag Docker Image') {
             container('docker') {              
-              echo "Tagging docker image..."
-              sh """
-              docker tag \
-              docker.io/${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']} \
-              docker.io/${dockerRepoOwner}/${appInfo['image_name']}:latest
-              """
-              echo "Logging in to Docker registry..."
-              withCredentials([usernamePassword(credentialsId: "dockerhub-creds", usernameVariable: "DOCKERHUB_USERNAME", passwordVariable: "DOCKERHUB_PASSWORD")]) {
-                sh "docker login -u ${DOCKERHUB_USERNAME} -p ${DOCKERHUB_PASSWORD} docker.io"
-              }
-              echo "Pushing docker image to registry..."
-              sh "docker push docker.io/${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']}"
-              sh "docker push  docker.io/${dockerRepoOwner}/${appInfo['image_name']}:latest"
-
+                dockers.tag(dockerRepoOwner, image, version)
+            }
+        }
+        stage('Login to Docker repository') {
+            container('docker') {              
+                dockers.login()
+            }
+        }
+        stage('Push Docker Image') {
+            container('docker') {              
+                dockers.push(dockerRepoOwner, image, version)
             }
         }
         
