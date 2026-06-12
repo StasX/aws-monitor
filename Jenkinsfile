@@ -117,7 +117,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         
         stage('Clone GitOps Repo') {
             container('git') {
-                manifests.pull(gitOpsRepo, githubRepoOwner)
+                manifests.pull(githubRepoOwner, gitOpsRepo)
             }
         }
         stage('Create Manifest') {
