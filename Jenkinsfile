@@ -117,61 +117,17 @@ podTemplate(cloud: 'kubernetes', containers: [
         
         stage('Clone GitOps Repo') {
             container('git') {
-                echo "Deploying to Kubernetes using Helm..."
-                withEnv([
-                    "GITHUB_REPO_OWNER=${githubRepoOwner}",
-                    "GITOPS_REPO=${gitOpsRepo}"
-                ]) {
-                    sh '''
-                        git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                    '''
-                }
+                manifests.pull(gitOpsRepo, githubRepoOwner)
             }
         }
         stage('Create Manifest') {
             container('helm') {
-                helm.createManifest(envName, envShortName, gitOpsRepo, appInfo["app_name"], dockerRepoOwner, image, appInfo["version"])
+                manifests.create(envName, envShortName, gitOpsRepo, appInfo["app_name"], dockerRepoOwner, image, version)
             }
         }
         stage('Push Manifest'){
             container('git'){
-                echo "Deploying to ${envName}..."
-                def type
-                switch(envName){
-                    case 'Development' :
-                        type = "dev"
-                        break
-                    case 'QA' :
-                        type = "qa"
-                        break
-                    case 'Production' :
-                        type = "prod"
-                        break
-                    default :
-                        throw new Exception("Invalid  environment")
-                }
-                withCredentials([usernamePassword(credentialsId: 'github_creds', 
-                usernameVariable: 'GH_USER', 
-                passwordVariable: 'GH_TOKEN')]) {
-                    withEnv([
-                    "GITHUB_REPO_OWNER=${githubRepoOwner}",
-                    "GITOPS_REPO=${gitOpsRepo}",
-                    "CURRENT_REPO=${currentRepo}",
-                    "ENV_SHORT_TYPE=${type}",
-                    "GIT_EMAIL=${email}"
-                    ]) {
-                        sh '''
-                            mv manifests/app.yaml "$GITOPS_REPO/manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml"
-                            git -C "$GITOPS_REPO" config user.name "$GH_USER"
-                            git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
-                            git -C "$GITOPS_REPO" add manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml
-                            git -C "$GITOPS_REPO" commit -m "Update application in $ENV_SHORT_TYPE environment"
-                            git -C "$GITOPS_REPO" remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
-                            git -C "$GITOPS_REPO" push origin main
-                            rm -r temp
-                        '''
-                    }
-                }
+                manifests.push ( gitOpsRepo, githubRepoOwne, currentRepo, envName, envShortName, email)
             }
         }
         stage('Change App Version'){
