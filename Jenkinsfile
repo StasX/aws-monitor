@@ -7,7 +7,9 @@ def gitOpsRepo = "argo-gitops"
 def currentRepo = "aws-monitor"
 def envType = ""
 def envShortType = ""
-
+def version = ""
+def image = ""
+        def appInfo = [:]
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'jnlp', 
@@ -47,42 +49,20 @@ podTemplate(cloud: 'kubernetes', containers: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
   ]) {
     node(POD_LABEL) {
-        def appInfo = [:]// Define shared map for extracted app information across stages
         stage('Checkout & Extract App Information') {
             container('jnlp') {
+                // select env type
+                (envShortType, envType) = envs.choiceEnv()
                 // Ensure that work space clean
                 cleanWs() 
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
-                (envShortType, envType) = envs.choiceEnv()
-                
-                def jsonObj = readJSON file '.app-info.json'
-                if (jsonObj.name != currentRepo){
+                echo "Extracting metadata from .app-info.json..."
+                (appInfo,version,image) = jsons.parse('.app-info.json')
+                if (appInfo["name"] != currentRepo){
                     throw Exception("Invalid  information file not match")
                 }
-            }
-            container('alpine') {
-                echo "Extracting metadata from .app-info.json..."
-                sh  "apk add --no-cache jq"
-                
-                appInfo["app_name"] = sh(
-                    script: "jq -r '.name' .app-info.json",
-                    returnStdout: true
-                ).trim()
-                appInfo["image_name"] = sh(
-                    script: "jq -r '.name' .app-info.json | tr '[:upper:]' '[:lower:]'",
-                    returnStdout: true
-                ).trim()
-                appInfo["version"] = sh(
-                    script: "jq -r '.version' .app-info.json",
-                    returnStdout: true
-                ).trim()
-
-                appInfo["description"] = sh(
-                    script: "jq -r '.description' .app-info.json",
-                    returnStdout: true
-                ).trim()
             }
         }
         stage('Security Scans') {
@@ -90,40 +70,19 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Bandit Testing': {
                     container('python') {
                         echo "Running Bandit Python Static Analysis..."
-                        sh """
-                        pip install --user bandit
-                        
-                        python -m bandit -r ./ -x ./.venv,./venv
-                        """
+                        security.banditScan()
                     }
                 },
                 'Checkov Testing': {
                     container('python') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        sh """
-                        python3 -m venv .venv
-                        . .venv/bin/activate
-                        pip install checkov
-                        .venv/bin/python -m checkov.main -f Dockerfile --framework dockerfile
-                        .venv/bin/python -m checkov.main -d ./chart --framework helm
-                        """
+                        security.checkovScan()
                     }
                 },
                 'Semgrep Testing': {
                     container('python') {
                         echo "Running Semgrep Scans..."
-                        sh """
-                        python3 -m venv .venv
-                        . .venv/bin/activate
-                        .venv/bin/python -m pip install semgrep
-                        .venv/bin/semgrep scan \
-                        --config=p/python \
-                        --config=p/dockerfile \
-                        --config=p/kubernetes \
-                        --config=p/github-actions \
-                        --metrics=off \
-                        --error
-                        """
+                        security.semgrepScan()
                     }
                 }
             )
@@ -137,12 +96,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Trivy Scan') {
             container('docker') {
                 echo "Running Trivy vulnerability scan on the built image..."
-                sh """
-                docker run -v /var/run/docker.sock:/var/run/docker.sock \
-                aquasec/trivy image ${dockerRepoOwner}/${appInfo['image_name']}:${appInfo['version']} \
-                --severity HIGH,CRITICAL \
-                --exit-code 1
-                """
+                security.trivyScan(String repoOwner, String image, String tag)
             }
         }
         stage('Tag and Push Docker Image') {
