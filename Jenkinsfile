@@ -186,15 +186,15 @@ podTemplate(cloud: 'kubernetes', containers: [
                 def type = ""
                 switch(envType){
                     case 'Development' : {
-                        def type = "dev"
+                        type = "dev"
                         break
                     }
                     case 'QA' : {
-                        def type = "qa"
+                        type = "qa"
                         break
                     }
                     case 'Production' : {
-                        def type = "prod"
+                        type = "prod"
                         break
                     }
                     default : {
@@ -207,7 +207,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                     rm -rf manifests && \
                     mkdir  manifests/${currentRepo}/${type}
                     cp chart/* -r temp
-                    cp ${gitOpsRepo}/${dev}/values.yaml temp
+                    cp ${gitOpsRepo}/${type}/values.yaml temp
                     helm template ${currentRepo} ./temp \
                     --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
                     --set-string pod.tag="${ appInfo['version'] }" \
@@ -219,17 +219,18 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Push Manifest'){
             container('git'){
                 echo "Deploying to ${envType}..."
+                def type
                 switch(envType){
                     case 'Development' : {
-                        def type = "dev"
+                        type = "dev"
                         break
                     }
                     case 'QA' : {
-                        def type = "qa"
+                        type = "qa"
                         break
                     }
                     case 'Production' : {
-                        def type = "prod"
+                        type = "prod"
                         break
                     }
                     default : {
@@ -247,7 +248,6 @@ podTemplate(cloud: 'kubernetes', containers: [
                     "GIT_EMAIL=${email}"
                     ]) {
                         sh '''
-                            git clone https://github.com/$GITHUB_REPO_OWNER/$GITOPS_REPO.git
                             mv manifests/app.yaml "$GITOPS_REPO/manifests/$CURRENT_REPO/$ENV_SHORT_TYPE/app.yaml"
                             git -C "$GITOPS_REPO" config user.name "$GH_USER"
                             git -C "$GITOPS_REPO" config user.email "$GIT_EMAIL"
