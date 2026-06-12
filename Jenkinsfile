@@ -127,7 +127,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Create Manifest') {
             container('helm') {
-                manifests.create(envName, envShortName, gitOpsRepo, appInfo["app_name"], dockerRepoOwner, image, version)
+                manifests.create(envName, envShortName, gitOpsRepo, currentRepo, dockerRepoOwner, image, version)
             }
         }
         stage('Push Manifest'){
