@@ -59,7 +59,8 @@ podTemplate(cloud: 'kubernetes', containers: [
                 sh 'git config --global http.sslVerify false'
                 checkout scm
                 echo "Extracting metadata from .app-info.json..."
-                (appInfo,version,image) = jsons.parse('.app-info.json')
+                def jsonObj = readJSON file '.app-info.json'
+                (appInfo,version,image) = jsons.parse(jsonObj, envShortType)
                 if (appInfo["name"] != currentRepo){
                     throw Exception("Invalid  information file not match")
                 }
