@@ -95,7 +95,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Trivy Scan') {
             container('docker') {
                 echo "Running Trivy vulnerability scan on the built image..."
-                security.trivyScan(String githubRepoOwner, String image, String version)
+                security.trivyScan(dockerRepoOwner, image, version)
             }
         }
         stage('Tag Docker Image') {
