@@ -52,6 +52,12 @@ podTemplate(cloud: 'kubernetes', containers: [
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
+
+                
+                def jsonObj = readJSON file '.app-info.json'
+                if (jsonObj.name != currentRepo){
+                    throw Exception("Invalid  information file not match")
+                }
             }
             container('alpine') {
                 echo "Extracting metadata from .app-info.json..."
@@ -69,6 +75,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                     script: "jq -r '.version' .app-info.json",
                     returnStdout: true
                 ).trim()
+
                 appInfo["description"] = sh(
                     script: "jq -r '.description' .app-info.json",
                     returnStdout: true
