@@ -185,21 +185,17 @@ podTemplate(cloud: 'kubernetes', containers: [
                 echo "Prepare HELM manifest for ${envType} environment..."
                 def type = ""
                 switch(envType){
-                    case 'Development' : {
+                    case 'Development' : 
                         type = "dev"
                         break
-                    }
-                    case 'QA' : {
+                    case 'QA' :
                         type = "qa"
                         break
-                    }
-                    case 'Production' : {
+                    case 'Production' :
                         type = "prod"
                         break
-                    }
-                    default : {
+                    default :
                         throw new Exception("Invalid  environment")
-                    } 
                 } 
                 sh """                        
                     rm -rf temp && \
@@ -221,21 +217,17 @@ podTemplate(cloud: 'kubernetes', containers: [
                 echo "Deploying to ${envType}..."
                 def type
                 switch(envType){
-                    case 'Development' : {
+                    case 'Development' :
                         type = "dev"
                         break
-                    }
-                    case 'QA' : {
+                    case 'QA' :
                         type = "qa"
                         break
-                    }
-                    case 'Production' : {
+                    case 'Production' :
                         type = "prod"
                         break
-                    }
-                    default : {
+                    default :
                         throw new Exception("Invalid  environment")
-                    } 
                 }
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
