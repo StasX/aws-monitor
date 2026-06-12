@@ -93,17 +93,22 @@ podTemplate(cloud: 'kubernetes', containers: [
               dockers.build(dockerRepoOwner, image, version)
             }
         }
-        stage('Trivy Scan') {
-            container('docker') {
-                echo "Running Trivy vulnerability scan on the built image..."
-                security.trivyScan(dockerRepoOwner, image, version)
-            }
+        stage("Run Trivy scan and Tag Docker Image"){
+            parallel(
+                'Trivy Scan' : {
+                    container('docker') {
+                        echo "Running Trivy vulnerability scan on the built image..."
+                        security.trivyScan(dockerRepoOwner, image, version)
+                    }
+                },
+                'Tag Docker Image' : {
+                    container('docker') {              
+                        dockers.tag(dockerRepoOwner, image, version)
+                    }
+                }                
+            )
         }
-        stage('Tag Docker Image') {
-            container('docker') {              
-                dockers.tag(dockerRepoOwner, image, version)
-            }
-        }
+
         stage('Login to Docker repository') {
             container('docker') {              
                 dockers.login()
