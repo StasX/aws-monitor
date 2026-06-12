@@ -5,8 +5,8 @@ def githubRepoOwner = "StasX"
 def email = "s.mestechkin@gmail.com"
 def gitOpsRepo = "argo-gitops"
 def currentRepo = "aws-monitor"
-def envType = ""
-def envShortType = ""
+def envName = ""
+def envShortName = ""
 def version = ""
 def image = ""
         def appInfo = [:]
@@ -52,7 +52,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Checkout & Extract App Information') {
             container('jnlp') {
                 // select env type
-                (envShortType, envType) = envs.choiceEnv()
+                (envShortName, envName) = envs.choiceEnv()
                 // Ensure that work space clean
                 cleanWs() 
                 // Ensure we skip SSL if needed internally, then pull code
@@ -60,7 +60,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 checkout scm
                 echo "Extracting information from .app-info.json..." 
                 def jsonObj = readJSON file: '.app-info.json'
-                (appInfo,version,image) = jsons.parse(jsonObj, envShortType)
+                (appInfo,version,image) = jsons.parse(jsonObj, envShortName)
                 if (jsonObj.name != currentRepo){
                     throw Exception("Invalid  information file not match")
                 }
@@ -130,41 +130,14 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Create Manifest') {
             container('helm') {
-                echo "Prepare HELM manifest for ${envType} environment..."
-                def type = ""
-                switch(envType){
-                    case 'Development' : 
-                        type = "dev"
-                        break
-                    case 'QA' :
-                        type = "qa"
-                        break
-                    case 'Production' :
-                        type = "prod"
-                        break
-                    default :
-                        throw new Exception("Invalid  environment")
-                }
-                sh """                        
-                    rm -rf temp && \
-                    mkdir temp
-                    rm -rf manifests && \
-                    mkdir manifests
-                    cp chart/* -r temp/
-                    cp ${gitOpsRepo}/manifests/${currentRepo}/${type}/values.yaml temp/
-                    helm template ${currentRepo} ./temp \
-                    --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
-                    --set-string pod.tag="${ appInfo['version'] }" \
-                    --set-string pod.name="${appInfo['app_name']}" \
-                    --set secret.enabled=false > manifests/app.yaml
-                """
+                helm.createManifest(envName, envShortName, gitOpsRepo, appInfo["app_name"], dockerRepoOwner, image, appInfo["version"])
             }
         }
         stage('Push Manifest'){
             container('git'){
-                echo "Deploying to ${envType}..."
+                echo "Deploying to ${envName}..."
                 def type
-                switch(envType){
+                switch(envName){
                     case 'Development' :
                         type = "dev"
                         break
