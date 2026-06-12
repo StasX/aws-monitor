@@ -127,7 +127,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Push Manifest'){
             container('git'){
-                manifests.push ( gitOpsRepo, githubRepoOwne, currentRepo, envName, envShortName, email)
+                manifests.push ( gitOpsRepo, githubRepoOwner, currentRepo, envName, envShortName, email)
             }
         }
         stage('Change App Version'){
