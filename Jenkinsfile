@@ -1,9 +1,12 @@
+
+@Library('aws-monitor-lib') _
 def dockerRepoOwner = "sm1986"
 def githubRepoOwner = "StasX"
 def email = "s.mestechkin@gmail.com"
 def gitOpsRepo = "argo-gitops"
 def currentRepo = "aws-monitor"
 def envType = ""
+def envShortType = ""
 
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
@@ -52,7 +55,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
-
+                (envShortType, envType) = envs.choiceEnv()
                 
                 def jsonObj = readJSON file '.app-info.json'
                 if (jsonObj.name != currentRepo){
@@ -161,19 +164,6 @@ podTemplate(cloud: 'kubernetes', containers: [
             }
         }
         
-        stage('Select environment') {
-                envType = input(
-                id: 'Proceed', 
-                message: 'Select which environment you want to deploy',
-                parameters: [
-                    choice(
-                        name: 'ENVIRONMENT', 
-                        choices: ['Development', 'QA', 'Production'], 
-                        description: 'Select which environment You want to deploy'
-                    )
-                ]
-                )
-        }
         stage('Clone GitOps Repo') {
             container('git') {
                 echo "Deploying to Kubernetes using Helm..."
@@ -203,7 +193,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                         break
                     default :
                         throw new Exception("Invalid  environment")
-                } 
+                }
                 sh """                        
                     rm -rf temp && \
                     mkdir temp
