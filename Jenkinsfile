@@ -203,11 +203,11 @@ podTemplate(cloud: 'kubernetes', containers: [
                 } 
                 sh """                        
                     rm -rf temp && \
-                    mkdir  temp
+                    mkdir temp
                     rm -rf manifests && \
-                    mkdir  manifests/${currentRepo}/${type}
-                    cp chart/* -r temp
-                    cp ${gitOpsRepo}/${type}/values.yaml temp
+                    mkdir manifests
+                    cp chart/* -r temp/
+                    cp ${gitOpsRepo}/manifests/${currentRepo}/${type}/values.yaml temp/
                     helm template ${currentRepo} ./temp \
                     --set-string pod.image="${ dockerRepoOwner }/${ appInfo['image_name'] }" \
                     --set-string pod.tag="${ appInfo['version'] }" \
