@@ -114,17 +114,19 @@ podTemplate(cloud: 'kubernetes', containers: [
             )
         }
 
-
-        stage('Push Docker Image') {
-            container('docker') {              
-                dockers.push(dockerRepoOwner, image, version)
-            }
-        }
-        
-        stage('Clone GitOps Repo') {
-            container('git') {
-                manifests.pull(gitOpsRepo, githubRepoOwner)
-            }
+        stage('Push Docker Image and pull GitOps Repo'){
+            parallel(
+                'Push Docker Image' : {
+                    container('docker') {              
+                        dockers.push(dockerRepoOwner, image, version)
+                    }
+                },
+                'Pull GitOps Repo' : {
+                    container('git') {
+                        manifests.pull(gitOpsRepo, githubRepoOwner)
+                    }
+                }
+            )
         }
         stage('Create Manifest') {
             container('helm') {
