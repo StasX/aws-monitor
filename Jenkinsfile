@@ -140,17 +140,14 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Change App Version'){
             container('git'){
-                echo "Changing ..."
-                echo appInfo
+                echo "Changing version..."
+                appInfo["${envShortName}_version"] = version.bumpUpPatch(version)
+                echo "Updated JSON:"
+                echo jsons.stringify(appInfo)
+                jsons.saveToJson(appInfo, '.app-info.json')
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
                 passwordVariable: 'GH_TOKEN')]) {
-                    def oldVersion = appInfo["version"]
-                    def (major, minor, patch) = oldVersion.tokenize('.')
-                    def newPatch = patch.toInteger() + 1
-                    def newVersion = "${major}.${minor}.${newPatch}"
-                    def name = appInfo['app_name']
-                    def description = appInfo['description']
                     withEnv([
                         "GITHUB_REPO_OWNER=${githubRepoOwner}",
                         "CURRENT_REPO=${currentRepo}",
@@ -160,19 +157,10 @@ podTemplate(cloud: 'kubernetes', containers: [
                         "NEW_VERSION=${newVersion}"
                     ]) {
                         sh '''
-                            cat > .app-info.json <<EOF
-                            {
-                            "name": "$APP_NAME",
-                            "version": "$NEW_VERSION",
-                            "description": "$APP_DESCRIPTION"
-                            }
-                            EOF
                             git config user.name "$GH_USER"
                             git config user.email "$GIT_EMAIL"
-                            
                             git add .app-info.json
                             git commit -m "Update next app version in .app-info.json"
-
                             git remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$CURRENT_REPO.git
                             git push origin main
                         '''
