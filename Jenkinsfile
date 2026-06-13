@@ -142,30 +142,11 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('git'){
                 echo "Changing version..."
                 appInfo["${envShortName}_version"] = versions.bumpUpPatch(version)
+                version = appInfo["${envShortName}_version"]
                 echo "Updated JSON:"
                 echo jsons.stringify(appInfo)
                 jsons.saveToJson(appInfo, '.app-info.json')
-                withCredentials([usernamePassword(credentialsId: 'github_creds', 
-                usernameVariable: 'GH_USER', 
-                passwordVariable: 'GH_TOKEN')]) {
-                    withEnv([
-                        "GITHUB_REPO_OWNER=${githubRepoOwner}",
-                        "CURRENT_REPO=${currentRepo}",
-                        "GIT_EMAIL=${email}",
-                        "APP_NAME=${appInfo['app_name']}",
-                        "APP_DESCRIPTION=${appInfo['description']}",
-                        "NEW_VERSION=${newVersion}"
-                    ]) {
-                        sh '''
-                            git config user.name "$GH_USER"
-                            git config user.email "$GIT_EMAIL"
-                            git add .app-info.json
-                            git commit -m "Update next app version in .app-info.json"
-                            git remote set-url origin https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPO_OWNER/$CURRENT_REPO.git
-                            git push origin main
-                        '''
-                    }
-                }
+                config.update(githubRepoOwner, currentRepo, email, version)
             }
         }
 
