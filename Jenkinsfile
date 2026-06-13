@@ -141,6 +141,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Change App Version'){
             container('git'){
                 echo "Changing ..."
+                echo appInfo
                 withCredentials([usernamePassword(credentialsId: 'github_creds', 
                 usernameVariable: 'GH_USER', 
                 passwordVariable: 'GH_TOKEN')]) {
