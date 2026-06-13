@@ -141,7 +141,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Change App Version'){
             container('git'){
                 echo "Changing version..."
-                appInfo["${envShortName}_version"] = version.bumpUpPatch(version)
+                appInfo["${envShortName}_version"] = versions.bumpUpPatch(version)
                 echo "Updated JSON:"
                 echo jsons.stringify(appInfo)
                 jsons.saveToJson(appInfo, '.app-info.json')
