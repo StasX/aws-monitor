@@ -105,15 +105,16 @@ podTemplate(cloud: 'kubernetes', containers: [
                     container('docker') {              
                         dockers.tag(dockerRepoOwner, image, version)
                     }
-                }                
+                },
+                'Login to Docker repository' : {
+                    container('docker') {              
+                        dockers.login()
+                    }
+                }           
             )
         }
 
-        stage('Login to Docker repository') {
-            container('docker') {              
-                dockers.login()
-            }
-        }
+
         stage('Push Docker Image') {
             container('docker') {              
                 dockers.push(dockerRepoOwner, image, version)
