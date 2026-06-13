@@ -93,7 +93,7 @@ podTemplate(cloud: 'kubernetes', containers: [
               dockers.build(dockerRepoOwner, image, version)
             }
         }
-        stage("Run Trivy scan and Tag Docker Image"){
+        stage("Run Trivy scan, login to Docker and tag Docker Image"){
             parallel(
                 'Trivy Scan' : {
                     container('docker') {
