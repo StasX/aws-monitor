@@ -6,7 +6,7 @@ metadata:
   labels:
   {{- include "exam.labels" . | nindent 4}}
 spec:
-  ingressClassName: traefik
+  ingressClassName: nginx
   rules:
     - http:
        paths:
