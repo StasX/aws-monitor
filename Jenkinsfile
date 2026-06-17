@@ -110,12 +110,12 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Trivy Scan' : {
                     container('docker') {
                         echo "Running Trivy vulnerability scan on the built image..."
-                        security.trivyScan(dockerRepoOwner, image, version)
+                        security.trivyScan(dockerRepoOwner, image, version, envName, envShortName)
                     }
                 },
                 'Tag Docker Image' : {
                     container('docker') {              
-                        dockers.tag(dockerRepoOwner, image, version)
+                        dockers.tag(dockerRepoOwner, image, version, envShortName)
                     }
                 },
                 'Login to Docker repository' : {
@@ -130,7 +130,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             parallel(
                 'Push Docker Image' : {
                     container('docker') {              
-                        dockers.push(dockerRepoOwner, image, version)
+                        dockers.push(dockerRepoOwner, image, version, envShortName)
                     }
                 },
                 'Pull GitOps Repo' : {
