@@ -102,7 +102,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Build Docker Image') {
             container('docker') {
-              dockers.build(dockerRepoOwner, image, version)
+              dockers.build(dockerRepoOwner, image, version, envShortName)
             }
         }
         stage("Run Trivy scan, login to Docker and tag Docker Image"){
