@@ -11,7 +11,7 @@ pod:
 awsSecretName: aws-monitor-secret
 
 externalSecret:
-  enabled: true
+  enabled: false
   secretStoreName: aws-secret-store
   region: us-east-1
   awsSecretManagerName: aws-monitor
