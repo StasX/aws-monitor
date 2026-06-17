@@ -28,7 +28,19 @@ podTemplate(cloud: 'kubernetes', containers: [
         args: '1d'
     ),
     containerTemplate(
-        name: 'python', 
+        name: 'bandit', 
+        image: 'python:3.13', // Use the latest stable Python image
+        command: 'sleep', // Don't terminate immediately
+        args: '1d'
+    ),
+    containerTemplate(
+        name: 'checkov', 
+        image: 'python:3.13', // Use the latest stable Python image
+        command: 'sleep', // Don't terminate immediately
+        args: '1d'
+    ),
+    containerTemplate(
+        name: 'semgrep', 
         image: 'python:3.13', // Use the latest stable Python image
         command: 'sleep', // Don't terminate immediately
         args: '1d'
@@ -69,19 +81,19 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage('Security Scans') {
             parallel(
                 'Bandit Testing': {
-                    container('python') {
+                    container('bandit') {
                         echo "Running Bandit Python Static Analysis..."
                         security.banditScan()
                     }
                 },
                 'Checkov Testing': {
-                    container('python') {
+                    container('checkov') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
                         security.checkovScan()
                     }
                 },
                 'Semgrep Testing': {
-                    container('python') {
+                    container('semgrep') {
                         echo "Running Semgrep Scans..."
                         security.semgrepScan()
                     }
