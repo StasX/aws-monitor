@@ -5,6 +5,11 @@ metadata:
   labels:
     {{- include "exam.labels" . | nindent 4}}
 spec:
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+  
   selector: 
     matchLabels:
       app: {{ .Release.Name }}
@@ -19,6 +24,13 @@ spec:
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          privileged: false
+          capabilities:
+            drop:
+              - ALL
         ports:
         - containerPort: {{ .Values.pod.targetPort }}
         env:
