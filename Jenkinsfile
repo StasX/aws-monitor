@@ -62,6 +62,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     node(POD_LABEL) {
         stage("Clear workspace"){
             container('alpine') {
+                // Ensure that work space clean
                 cleanWs() 
             }
         }
@@ -71,8 +72,6 @@ podTemplate(cloud: 'kubernetes', containers: [
                     container('jnlp') {
                         // select env type
                         (envShortName, envName) = envs.choiceEnv()
-                        // Ensure that work space clean
-                        cleanWs() 
                         // Ensure we skip SSL if needed internally, then pull code
                         sh 'git config --global http.sslVerify false'
                         checkout scm
