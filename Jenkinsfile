@@ -47,6 +47,11 @@ podTemplate(cloud: 'kubernetes', containers: [
         command: 'sleep 1d'
     ), 
     containerTemplate(
+        name: 'kube-score', 
+        image: 'zegl/kube-score', // Use the latest stable kube score image
+        command: 'sleep 1d'
+    ), 
+    containerTemplate(
         name: 'git', 
         image: 'alpine/git', // Use the latest stable Helm image
         command: 'sleep 1d'
@@ -142,9 +147,14 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Validate Manifest') {
             parallel(
-                ("Checkov Scan") : {
+                "Checkov Test" : {
                     container('checkov') {
                         security.checkovScan("./manifests/app.yaml", "-d", "kubernetes", ".venv")
+                    }
+                },
+                "Kube Score Test" : {
+                    container('kube-score'){
+                        echo "Running kube score test"
                     }
                 }
             )
