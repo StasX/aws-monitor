@@ -61,7 +61,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
   ]) {
     node(POD_LABEL) {
-        ('Checkout & Extract App Information') {
+        stage('Checkout & Extract App Information') {
             container('jnlp') {
                 // Ensure that work space clean
                 cleanWs()                        
