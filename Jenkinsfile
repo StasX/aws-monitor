@@ -9,6 +9,7 @@ def envName = ""
 def envShortName = ""
 def version = ""
 def image = ""
+def installers
         def appInfo = [:]
 podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
