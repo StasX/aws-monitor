@@ -11,10 +11,13 @@ spec:
       app: {{ .Release.Name }}
   policyTypes:
     - Ingress
+    - Egress
   ingress:
     - from:
         - namespaceSelector: {}
       ports:
         - protocol: TCP
           port: {{ .Values.pod.targetPort }}
+  egress:
+  - {}
 {{- end }}
