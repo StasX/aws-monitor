@@ -36,8 +36,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'checkov', 
         image: 'python:3.13', // Use the latest stable Python image
-        command: 'python3 -m venv .venv; . .venv/bin/activate; pip install checkov; sleep', // Don't terminate immediately
-        args: '1d'
+        command: 'python3 -m venv .venv; . .venv/bin/activate; pip install checkov; sleep 1d'
     ),
     containerTemplate(
         name: 'semgrep', 
