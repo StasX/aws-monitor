@@ -51,7 +51,9 @@ spec:
           requests:
             cpu: {{ .Values.resources.requests.cpu | quote }}
             memory: {{ .Values.resources.requests.memory | quote }}
+            ephemeral-storage: {{ .Values.resources.requests.ephemeralStorage | quote }}
 
           limits:
             cpu: {{ .Values.resources.limits.cpu | quote }}
             memory: {{ .Values.resources.limits.memory | quote }}
+            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
