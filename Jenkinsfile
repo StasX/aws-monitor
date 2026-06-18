@@ -102,7 +102,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Build Docker Image') {
             container('docker') {
-              dockers.build(dockerRepoOwner, image, version, envShortName)
+              dockers.build(dockerRepoOwner, image, version, envName, envShortName)
             }
         }
         stage("Run Trivy scan, login to Docker and tag Docker Image"){
@@ -115,7 +115,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 },
                 'Tag Docker Image' : {
                     container('docker') {              
-                        dockers.tag(dockerRepoOwner, image, version, envShortName)
+                        dockers.tag(dockerRepoOwner, image, version, envName, envShortName)
                     }
                 },
                 'Login to Docker repository' : {
@@ -130,7 +130,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             parallel(
                 'Push Docker Image' : {
                     container('docker') {              
-                        dockers.push(dockerRepoOwner, image, version, envShortName)
+                        dockers.push(dockerRepoOwner, image, version, envName, envShortName)
                     }
                 },
                 'Pull GitOps Repo' : {
