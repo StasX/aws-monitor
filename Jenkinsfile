@@ -61,29 +61,25 @@ podTemplate(cloud: 'kubernetes', containers: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
   ]) {
     node(POD_LABEL) {
-        stage("Clear workspace"){
-            container('alpine') {
+        ('Checkout & Extract App Information') {
+            container('jnlp') {
                 // Ensure that work space clean
-                cleanWs() 
+                cleanWs()                        
+                // select env type
+                (envShortName, envName) = envs.choiceEnv()
+                // Ensure we skip SSL if needed internally, then pull code
+                sh 'git config --global http.sslVerify false'
+                checkout scm
+                echo "Extracting information from .app-info.json..." 
+                def jsonObj = readJSON file: '.app-info.json'
+                (appInfo,version,image) = jsons.parse(jsonObj, envShortName)
+                if (jsonObj.name != currentRepo){
+                    throw Exception("Invalid  information file not match")
+                }
             }
         }
-        stage("Checkout & Environment preparations"){
+        stage("Environment preparations"){
             parallel(
-                'Checkout & Extract App Information' : {
-                    container('jnlp') {
-                        // select env type
-                        (envShortName, envName) = envs.choiceEnv()
-                        // Ensure we skip SSL if needed internally, then pull code
-                        sh 'git config --global http.sslVerify false'
-                        checkout scm
-                        echo "Extracting information from .app-info.json..." 
-                        def jsonObj = readJSON file: '.app-info.json'
-                        (appInfo,version,image) = jsons.parse(jsonObj, envShortName)
-                        if (jsonObj.name != currentRepo){
-                            throw Exception("Invalid  information file not match")
-                        }
-                    }
-                },
                 "Install Checkov" : {
                     container('checkov') {
                         installers.installCheckov()
