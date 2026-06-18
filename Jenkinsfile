@@ -48,11 +48,6 @@ podTemplate(cloud: 'kubernetes', containers: [
         command: 'sleep 1d'
     ), 
     containerTemplate(
-        name: 'kube-score', 
-        image: 'zegl/kube-score', // Use the latest stable kube score image
-        command: 'sleep 1d'
-    ), 
-    containerTemplate(
         name: 'git', 
         image: 'alpine/git', // Use the latest stable Helm image
         command: 'sleep 1d'
@@ -130,7 +125,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Trivy Scan' : {
                     container('docker') {
                         echo "Running Trivy vulnerability scan on the built image..."
-                        security.trivyScan(dockerRepoOwner, image, version, envName, envShortName)
+                        security.trivyScanImage(dockerRepoOwner, image, version, envName, envShortName)
                     }
                 },
                 'Tag Docker Image' : {
@@ -172,9 +167,16 @@ podTemplate(cloud: 'kubernetes', containers: [
                         security.checkovScan("./manifests/app.yaml", "-d", "kubernetes")
                     }
                 },
-                "Kube Score Test" : {
-                    container('kube-score'){
-                        echo "Running kube score test"
+                "Kube Score Scan" : {
+                    container('docker'){
+                        echo "Running kube score vulnerability scan on manifest"
+                        security.kubeScoreScan("./manifests/", "app.yaml")
+                    }
+                },
+                "Trivy Scan" : {
+                    container('docker'){
+                        echo "Running trivy vulnerability scan on manifest"
+                        security.trivyScanFile("./manifests/", "app.yaml")
                     }
                 }
             )
