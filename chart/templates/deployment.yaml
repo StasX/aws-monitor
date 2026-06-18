@@ -4,12 +4,7 @@ metadata:
   name: {{ .Release.Name }}-deploy
   labels:
     {{- include "exam.labels" . | nindent 4}}
-spec:
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    runAsGroup: 1000
-  
+spec:  
   selector: 
     matchLabels:
       app: {{ .Release.Name }}
@@ -21,6 +16,10 @@ spec:
         app: {{ .Release.Name }}
         {{- include "exam.labels" . | nindent 8}}
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}
