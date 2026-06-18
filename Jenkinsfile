@@ -49,7 +49,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'git', 
         image: 'alpine/git', // Use the latest stable Helm image
-        command: 'sleep d'
+        command: 'sleep 1d'
     )], 
   volumes: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
@@ -144,7 +144,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             parallel(
                 ("Checkov Scan") : {
                     container('checkov') {
-                        
+                        security.checkovScan("./manifests/app.yaml", "-d", "kubernetes", ".venv")
                     }
                 }
             )
