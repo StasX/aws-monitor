@@ -60,6 +60,11 @@ podTemplate(cloud: 'kubernetes', containers: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
   ]) {
     node(POD_LABEL) {
+        stage("Clear workspace"){
+            container('alpine') {
+                cleanWs() 
+            }
+        }
         stage("Checkout & Environment preparations"){
             parallel(
                 'Checkout & Extract App Information' : {
