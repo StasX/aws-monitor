@@ -88,7 +88,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Checkov Testing': {
                     container('checkov') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        security.checkovScan("Dockerfile", "-f", "dockerfile")
+                        security.checkovScan("Dockerfile", "-f", "dockerfile", ".venv")
                         security.checkovScan("./chart", "-d", "helm", ".venv")
                     }
                 },
