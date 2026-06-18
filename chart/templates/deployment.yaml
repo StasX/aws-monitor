@@ -24,6 +24,25 @@ spec:
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}
+        imagePullPolicy: Always
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: {{ .Values.pod.targetPort }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: {{ .Values.pod.targetPort }}
+          initialDelaySeconds: 20
+          periodSeconds: 20
+
+
+
+
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
