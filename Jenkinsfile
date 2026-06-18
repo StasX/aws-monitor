@@ -36,7 +36,7 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'checkov', 
         image: 'python:3.13', // Use the latest stable Python image
-        command: 'sleep', // Don't terminate immediately
+        command: 'python3 -m venv .venv; . .venv/bin/activate; pip install checkov; sleep', // Don't terminate immediately
         args: '1d'
     ),
     containerTemplate(
@@ -89,7 +89,8 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Checkov Testing': {
                     container('checkov') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        security.checkovScan()
+                        security.checkovScan("Dockerfile", "-f", String "dockerfile")
+                        security.checkovScan("./chart", "-d", String "helm", ".venv")
                     }
                 },
                 'Semgrep Testing': {
@@ -144,6 +145,15 @@ podTemplate(cloud: 'kubernetes', containers: [
             container('helm') {
                 manifests.create(envName, envShortName, gitOpsRepo, currentRepo, dockerRepoOwner, image, version)
             }
+        }
+        stage('Validate Manifest') {
+            parallel(
+                ("Checkov Scan") : {
+                    container('checkov') {
+                        
+                    }
+                }
+            )
         }
         stage('Push Manifest'){
             container('git'){
