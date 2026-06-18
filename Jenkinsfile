@@ -24,14 +24,12 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'alpine', 
         image: 'alpine:latest',
-        command: 'sleep', // Don't terminate immediately
-        args: '1d'
+        command: 'sleep 1d'
     ),
     containerTemplate(
         name: 'bandit', 
         image: 'python:3.13', // Use the latest stable Python image
-        command: 'sleep', // Don't terminate immediately
-        args: '1d'
+        command: 'sleep 1d'
     ),
     containerTemplate(
         name: 'checkov', 
@@ -41,20 +39,17 @@ podTemplate(cloud: 'kubernetes', containers: [
     containerTemplate(
         name: 'semgrep', 
         image: 'python:3.13', // Use the latest stable Python image
-        command: 'sleep', // Don't terminate immediately
-        args: '1d'
+        command: 'sleep 1d'
     ),
     containerTemplate(
         name: 'helm', 
         image: 'alpine/helm', // Use the latest stable Helm image
-        command: 'sleep', // Don't terminate immediately
-        args: '1d'
+        command: 'sleep 1d'
     ), 
     containerTemplate(
         name: 'git', 
         image: 'alpine/git', // Use the latest stable Helm image
-        command: 'sleep', // Don't terminate immediately
-        args: '1d'
+        command: 'sleep d'
     )], 
   volumes: [
     emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
