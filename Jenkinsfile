@@ -88,8 +88,8 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Checkov Testing': {
                     container('checkov') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        security.checkovScan("Dockerfile", "-f", "dockerfile", ".venv")
-                        security.checkovScan("./chart", "-d", "helm", ".venv")
+                        security.checkovScan("Dockerfile", "-f", "dockerfile")
+                        security.checkovScan("./chart", "-d", "helm")
                     }
                 },
                 'Semgrep Testing': {
@@ -149,7 +149,7 @@ podTemplate(cloud: 'kubernetes', containers: [
             parallel(
                 "Checkov Test" : {
                     container('checkov') {
-                        security.checkovScan("./manifests/app.yaml", "-d", "kubernetes", ".venv")
+                        security.checkovScan("./manifests/app.yaml", "-d", "kubernetes")
                     }
                 },
                 "Kube Score Test" : {
