@@ -18,8 +18,9 @@ spec:
     spec:
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}

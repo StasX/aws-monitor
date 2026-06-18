@@ -20,10 +20,12 @@ resources:
   requests:
     cpu: "200m"
     memory: "256Mi"
+    ephemeralStorage: "100Mi"
 
   limits:
     cpu: "500m"
     memory: "512Mi"
+    ephemeralStorage: "1Gi"
 
 hpa:
   enabled: true
