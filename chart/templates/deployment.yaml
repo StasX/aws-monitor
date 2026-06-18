@@ -34,10 +34,9 @@ spec:
           periodSeconds: 10
 
         livenessProbe:
-          httpGet:
-            path: /
+          tcpSocket: # validate if pod alive via tcp connection
             port: {{ .Values.pod.targetPort }}
-          initialDelaySeconds: 20
+          initialDelaySeconds: 30
           periodSeconds: 20
 
 
