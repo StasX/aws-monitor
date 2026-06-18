@@ -30,3 +30,6 @@ hpa:
   maxReplicas: 10
   avgCPUUtilization: 50
   avgMemoryUtilization: 50
+
+networkPolicy:
+  enabled: true
