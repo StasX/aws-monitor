@@ -47,3 +47,9 @@ podMonitor:
   path: /
   interval: 15s
   scrapeTimeout: 10s
+
+serviceMonitor:
+  enabled: true
+  path: /
+  interval: 15s
+  scrapeTimeout: 10s
