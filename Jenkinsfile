@@ -61,7 +61,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 // Ensure that work space clean
                 cleanWs()                        
                 // select env type
-                (envShortName, envName) = envs.choiceEnv()
+                (envShortName, envName) = userInput.choiceEnv()
                 // Ensure we skip SSL if needed internally, then pull code
                 sh 'git config --global http.sslVerify false'
                 checkout scm
@@ -69,7 +69,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 def jsonObj = readJSON file: '.app-info.json'
                 (appInfo,version,image) = jsons.parse(jsonObj, envShortName)
                 if (jsonObj.name != currentRepo){
-                    throw Exception("Invalid  information file not match")
+                    userInput.wrongConfiguration()
                 }
             }
         }
