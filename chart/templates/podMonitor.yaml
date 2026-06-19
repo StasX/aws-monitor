@@ -16,8 +16,7 @@ spec:
       - {{ .Release.Namespace }}
 
   podMetricsEndpoints:
-    - port: 
-        name: http
+    - port: http
       path: {{ .Values.podMonitor.path }}
       interval: {{ .Values.podMonitor.interval }}
       scrapeTimeout: {{ .Values.podMonitor.scrapeTimeout }}
