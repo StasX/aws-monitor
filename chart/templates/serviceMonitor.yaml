@@ -14,7 +14,7 @@ spec:
 
   namespaceSelector:
     matchNames:
-      - {{ .Release.Namespace }}
+    - {{ .Release.Namespace }}
 
   endpoints:
     - port: http
