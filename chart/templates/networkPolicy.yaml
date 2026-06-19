@@ -19,5 +19,23 @@ spec:
         - protocol: TCP
           port: {{ .Values.pod.targetPort }}
   egress:
-  - {}
+  # Allow DNS
+  - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+    ports:
+      - protocol: UDP
+        port: 53
+      - protocol: TCP
+        port: 53
+  # Allow outbound HTTP and HTTPS
+  - to:
+      - ipBlock:
+          cidr: 0.0.0.0/0
+    ports:
+      - protocol: TCP
+        port: 80
+      - protocol: TCP
+        port: 443
 {{- end }}
