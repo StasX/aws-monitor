@@ -5,6 +5,7 @@ metadata:
   name: {{ .Release.Name }}-pm
   namespace: {{ .Values.podMonitor.namespace }}
   labels:
+    release: {{ .Values.podMonitor.release }}
     {{- include "exam.labels" . | nindent 4 }}
 spec:
   selector:
