@@ -2,7 +2,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ .Release.Name }}-{{ .Release.Namespace }}-sm
+  name: {{ .Release.Name }}-{{ .Values.serviceMonitor.env }}-sm
   namespace: {{ .Values.serviceMonitor.namespace }}
   labels:
     release: {{ .Values.serviceMonitor.release }}
