@@ -1,7 +1,7 @@
 {
     "name": "aws-monitor",
     "version":     {
-        "dev": "1.0.23",
+        "dev": "1.0.24",
         "qa": "1.0.16",
         "prod": "1.0.11"
     },
