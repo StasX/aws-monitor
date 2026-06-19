@@ -3,7 +3,7 @@ kind: PodDisruptionBudget
 metadata:
   name: {{ .Release.Name }}-pdb
 spec:
-  minAvailable: 1
+  minAvailable: {{ .Values.pdb.minAvaliableReplicas }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}
