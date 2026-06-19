@@ -14,7 +14,7 @@ spec:
 
   namespaceSelector:
     matchNames:
-    - {{ .Release.Namespace }}
+    - {{ .Values.podMonitor.env }}
 
   podMetricsEndpoints:
     - port: http
