@@ -40,15 +40,17 @@ pdb:
   minAvaliableReplicas: 2
 
 monitoring:
-  namespace: monitoring
+  
 
 podMonitor:
+  namespace: monitoring
   enabled: true
   path: /
   interval: 15s
   scrapeTimeout: 10s
 
 serviceMonitor:
+  namespace: monitoring
   enabled: true
   path: /
   interval: 15s
