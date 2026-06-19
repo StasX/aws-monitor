@@ -3,7 +3,7 @@
     "version":     {
         "dev": "1.0.32",
         "qa": "1.0.21",
-        "prod": "1.0.14"
+        "prod": "1.0.15"
     },
     "description": "Monitoring Application for AWS"
 }
