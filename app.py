@@ -134,6 +134,9 @@ def home():
 
     return render_template_string(html_template, instance_data=instance_data, vpc_data=vpc_data, lb_data=lb_data, ami_data=ami_data)
 
+@app.route("/metrics")
+def metrics():
+    return "", 200
 
 if __name__ == "__main__":
     APP_HOST = os.getenv("APP_HOST", "127.0.0.1")
