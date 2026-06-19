@@ -2,7 +2,7 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: name: {{ .Release.Name }}-{{ .Release.Namespace }}-pm
+  name: {{ .Release.Name }}-{{ .Release.Namespace }}-pm
   namespace: {{ .Values.podMonitor.namespace }}
   labels:
     release: {{ .Values.podMonitor.release }}
