@@ -191,6 +191,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         }
         stage('Push Manifest'){
             container('git'){
+                manifests.pull(gitOpsRepo, githubRepoOwner, "main")
                 manifests.push ( gitOpsRepo, githubRepoOwner, currentRepo, envName, envShortName, email)
             }
         }
