@@ -29,7 +29,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         args: '--storage-driver=vfs'
     ),
     containerTemplate(
-        name: 'kubeScore', 
+        name: 'kube-score', 
         image: 'docker:26-dind',
         privileged: true,
         args: '--storage-driver=vfs'
@@ -106,7 +106,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                     }
                 },
                 "Install Kube Score" : {
-                    container('kubeScore') {
+                    container('kube-score') {
                         installers.installKubeScore()
                     }
                 },
@@ -188,7 +188,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                     }
                 },
                 "Kube Score Scan" : {
-                    container('kubeScore'){
+                    container('kube-score'){
                         echo "Running kube score vulnerability scan on manifest"
                         security.kubeScoreScan("./manifests/", "app.yaml")
                     }
