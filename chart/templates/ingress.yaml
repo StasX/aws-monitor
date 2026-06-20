@@ -13,7 +13,7 @@ spec:
   rules:
     - http:
        paths:
-        - path: "{{ .Values.ingress.path }}(/|$)(.*)"
+        - path: "{{ .Values.ingress.path }}"
           pathType: ImplementationSpecific
           backend:
             service:
