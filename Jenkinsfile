@@ -202,7 +202,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 echo "Updated JSON:"
                 echo jsons.stringify(appInfo)
                 jsons.saveToJson(appInfo, '.app-info.json')
-                config.update(githubRepoOwner, currentRepo, email, version)
+                utils.updateVersion(githubRepoOwner, currentRepo, email, version)
             }
         }
 
