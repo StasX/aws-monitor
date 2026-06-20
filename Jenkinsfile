@@ -20,19 +20,22 @@ podTemplate(cloud: 'kubernetes', containers: [
         name: 'docker', 
         image: 'docker:26-dind',
         privileged: true,
-        args: '--storage-driver=vfs'
+        args: '--storage-driver=vfs --host=tcp://0.0.0.0:2375'
     ),
     containerTemplate(
         name: 'trivy', 
         image: 'docker:26-dind',
         privileged: true,
-        args: '--storage-driver=vfs'
+        args: '--storage-driver=vfs --host=tcp://0.0.0.0:2376',
+        envVars: [
+            envVar(key: 'DOCKER_HOST', value: 'tcp://localhost:2375')
+        ]
     ),
     containerTemplate(
         name: 'kube-score', 
         image: 'docker:26-dind',
         privileged: true,
-        args: '--storage-driver=vfs'
+        args: '--storage-driver=vfs --host=tcp://0.0.0.0:2377'
     ),
     containerTemplate(
         name: 'alpine', 
@@ -65,7 +68,9 @@ podTemplate(cloud: 'kubernetes', containers: [
         command: 'sleep 1d'
     )], 
   volumes: [
-    emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
+    emptyDirVolume(mountPath: '/var/lib/docker', memory: false),
+    // emptyDirVolume(mountPath: '/var/lib/trivy', memory: false),
+    // emptyDirVolume(mountPath: '/var/lib/kube-score', memory: false),
   ]) {
     node(POD_LABEL) {
         stage('Checkout & Extract App Information') {
