@@ -23,21 +23,6 @@ podTemplate(cloud: 'kubernetes', containers: [
         args: '--storage-driver=vfs --host=tcp://0.0.0.0:2375'
     ),
     containerTemplate(
-        name: 'trivy', 
-        image: 'docker:26-dind',
-        privileged: true,
-        args: '--storage-driver=vfs --host=tcp://0.0.0.0:2376',
-        envVars: [
-            envVar(key: 'DOCKER_HOST', value: 'tcp://localhost:2375')
-        ]
-    ),
-    containerTemplate(
-        name: 'kube-score', 
-        image: 'docker:26-dind',
-        privileged: true,
-        args: '--storage-driver=vfs --host=tcp://0.0.0.0:2377'
-    ),
-    containerTemplate(
         name: 'alpine', 
         image: 'alpine:latest',
         command: 'sleep 1d'
@@ -68,9 +53,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         command: 'sleep 1d'
     )], 
   volumes: [
-    emptyDirVolume(mountPath: '/var/lib/docker', memory: false),
-    // emptyDirVolume(mountPath: '/var/lib/trivy', memory: false),
-    // emptyDirVolume(mountPath: '/var/lib/kube-score', memory: false),
+    emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
   ]) {
     node(POD_LABEL) {
         stage('Checkout & Extract App Information') {
@@ -106,12 +89,12 @@ podTemplate(cloud: 'kubernetes', containers: [
                     }
                 },
                 "Install Trivy" : {
-                    container('trivy') {
+                    container('docker') {
                         installers.installTrivy()
                     }
                 },
                 "Install Kube Score" : {
-                    container('kube-score') {
+                    container('docker') {
                         installers.installKubeScore()
                     }
                 },
@@ -148,7 +131,7 @@ podTemplate(cloud: 'kubernetes', containers: [
         stage("Run Trivy scan, login to Docker and tag Docker Image"){
             parallel(
                 'Trivy Scan' : {
-                    container('trivy') {
+                    container('docker') {
                         echo "Running Trivy vulnerability scan on the built image..."
                         security.trivyScanImage(dockerRepoOwner, image, version, envName, envShortName)
                     }
@@ -193,13 +176,13 @@ podTemplate(cloud: 'kubernetes', containers: [
                     }
                 },
                 "Kube Score Scan" : {
-                    container('kube-score'){
+                    container('docker'){
                         echo "Running kube score vulnerability scan on manifest"
                         security.kubeScoreScan("./manifests/", "app.yaml")
                     }
                 },
                 "Trivy Scan" : {
-                    container('trivy'){
+                    container('docker'){
                         echo "Running trivy vulnerability scan on manifest"
                         security.trivyScanFile("./manifests/", "app.yaml")
                     }
