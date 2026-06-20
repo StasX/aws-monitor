@@ -41,9 +41,6 @@ spec:
           initialDelaySeconds: 30
           periodSeconds: 20
 
-
-
-
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -54,6 +51,8 @@ spec:
         ports:
         - name: http 
           containerPort: {{ .Values.pod.targetPort }}
+        
+        {{ if not .Values.externalSecret.enabled }}
         env:
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
@@ -66,7 +65,7 @@ spec:
               secretKeyRef:
                 name: {{ .Values.awsSecretName }}
                 key: AWS_SECRET_ACCESS_KEY
-
+        {{ end }}
 
         resources:
           requests:
