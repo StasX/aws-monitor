@@ -158,7 +158,7 @@ podTemplate(cloud: 'kubernetes', containers: [
                 },
                 'Pull GitOps Repo' : {
                     container('git') {
-                        manifests.pull(gitOpsRepo, githubRepoOwner)
+                        manifests.pull(gitOpsRepo, githubRepoOwner, "monitor")
                     }
                 }
             )
