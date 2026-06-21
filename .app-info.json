@@ -2,7 +2,7 @@
     "name": "aws-monitor",
     "version":     {
         "dev": "1.0.45",
-        "qa": "1.0.29",
+        "qa": "1.0.30",
         "prod": "1.0.19"
     },
     "description": "Monitoring Application for AWS"
