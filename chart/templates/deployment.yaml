@@ -18,11 +18,13 @@ spec:
         app: {{ .Release.Name }}
         {{- include "exam.labels" . | nindent 8}}
     spec:
+      {{ if .Values.securityContext.enabled }}
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
-        fsGroup: 10001
+        runAsNonRoot: {{.Values.runAsNonRoot}}
+        runAsUser: {{.Values.runAsUser}}
+        runAsGroup: {{.Values.runAsGroup}}
+        fsGroup: {{.Values.fsGroup}}
+      {end}
       containers:
       - name: {{ .Release.Name }}
         image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}
