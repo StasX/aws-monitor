@@ -47,8 +47,13 @@ jobs:
               /tmp/tests/bin/python -m unittest discover -s tests -v
             ' 2>&1 | tee reports/application-tests.txt
       - name: Validate Helm chart and run Helm schema tests
+        env:
+          CI_IMAGE: ${{ vars.DOCKERHUB_REPOSITORY || 'sm1986/aws-monitor' }}:latest
         run: |
-          helm lint chart --strict 2>&1 | tee reports/helm-lint.txt
+          digest=$(docker buildx imagetools inspect "$CI_IMAGE" --format '{{.Manifest.Digest}}')
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'pod:\n  digest: %s\n' "$digest" > reports/ci-values.yaml
+          helm lint chart --strict --namespace ci -f reports/ci-values.yaml 2>&1 | tee reports/helm-lint.txt
           python3 -m unittest discover -s tests -p test_helm_schema.py -v 2>&1 | tee reports/helm-tests.txt
       - name: Save test reports
         if: always()
@@ -92,7 +97,14 @@ jobs:
           checkov -f Dockerfile --framework dockerfile 2>&1 | tee reports/checkov-dockerfile.txt
       - name: Checkov Helm chart
         if: ${{ !cancelled() && matrix.scanner == 'checkov' && steps.scanner-install.outcome == 'success' }}
-        run: checkov -d chart --framework helm 2>&1 | tee reports/checkov-helm.txt
+        env:
+          CI_IMAGE: ${{ vars.DOCKERHUB_REPOSITORY || 'sm1986/aws-monitor' }}:latest
+        run: |
+          digest=$(docker buildx imagetools inspect "$CI_IMAGE" --format '{{.Manifest.Digest}}')
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'pod:\n  digest: %s\n' "$digest" > reports/ci-values.yaml
+          helm template aws-monitor chart --namespace ci -f reports/ci-values.yaml > reports/chart.yaml
+          checkov -f reports/chart.yaml --framework kubernetes 2>&1 | tee reports/checkov-helm.txt
       - name: Semgrep
         if: matrix.scanner == 'semgrep'
         run: |
@@ -120,6 +132,7 @@ jobs:
       RELEASE_ENV: ${{ inputs.environment }}
       DOCKER_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY || 'sm1986/aws-monitor' }}
       GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY || 'StasX/argo-gitops' }}
+      DOCKER_BUILD_RECORD_RETENTION_DAYS: '14'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -147,19 +160,84 @@ jobs:
       - uses: azure/setup-helm@v5
         with:
           version: v3.18.4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Check out current application branch for version update
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: version-update
+      - name: Reject a stale release before publishing
+        run: |
+          test "$(git -C version-update rev-parse HEAD)" = "$GITHUB_SHA" || {
+            echo 'main changed while this release was running. Start a new release.'
+            exit 1
+          }
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Prepare release reports
+        run: mkdir -p reports
+      - name: Build image for scanning
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          # Use the event's immutable Git context for both build invocations.
+          context: "{{defaultContext}}"
+          platforms: linux/amd64
+          load: true
+          push: false
+          provenance: false
+          sbom: false
+          tags: ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
+          format: json
+          output: reports/trivy-image.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish scanned image
+        id: publish
+        uses: docker/build-push-action@v7
+        with:
+          context: "{{defaultContext}}"
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          sbom: false
+          tags: |
+            ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
+            ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.latest }}
+      - name: Verify published digest matches scanned image
+        env:
+          SCANNED_DIGEST: ${{ steps.build.outputs.digest }}
+          PUBLISHED_DIGEST: ${{ steps.publish.outputs.digest }}
+        run: |
+          [[ "$PUBLISHED_DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]
+          test "$SCANNED_DIGEST" = "$PUBLISHED_DIGEST" || {
+            echo 'Published image differs from the scanned image; refusing the GitOps update.'
+            exit 1
+          }
+          printf '%s@%s\n' "$DOCKER_REPOSITORY" "$PUBLISHED_DIGEST" > reports/image-reference.txt
       - name: Render environment manifest
         env:
           IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
+          IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
         run: |
           mkdir -p manifests reports
           test -f "gitops-values/$RELEASE_ENV/values.yaml"
           helm template aws-monitor chart --namespace "$RELEASE_ENV" \
             -f "gitops-values/$RELEASE_ENV/values.yaml" \
             --set-string "pod.image=$DOCKER_REPOSITORY" \
-            --set-string "pod.tag=$IMAGE_TAG" > manifests/app.yaml
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
+            --set-string "pod.tag=$IMAGE_TAG" \
+            --set-string "pod.digest=$IMAGE_DIGEST" > manifests/app.yaml
       - name: Validate rendered manifest with Checkov
         run: |
           python -m pip install checkov
@@ -175,18 +253,6 @@ jobs:
           scan-ref: manifests/app.yaml
           format: json
           output: reports/trivy-manifest.json
-          severity: HIGH,CRITICAL
-          exit-code: '1'
-      - name: Build image
-        env:
-          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
-        run: docker build --tag "$DOCKER_REPOSITORY:$IMAGE_TAG" . 2>&1 | tee reports/docker-build.txt
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
-          format: json
-          output: reports/trivy-image.json
           severity: HIGH,CRITICAL
           exit-code: '1'
       - name: Save rendered manifest
@@ -205,30 +271,6 @@ jobs:
           token: ${{ secrets.GITOPS_TOKEN }}
           path: gitops
           fetch-depth: 0
-      - name: Check out current application branch for version update
-        uses: actions/checkout@v6
-        with:
-          ref: main
-          path: version-update
-      - name: Reject a stale release before publishing
-        run: |
-          test "$(git -C version-update rev-parse HEAD)" = "$GITHUB_SHA" || {
-            echo 'main changed while this release was running. Start a new release.'
-            exit 1
-          }
-      - name: Log in to Docker Hub
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-      - name: Publish scanned image
-        env:
-          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
-          LATEST_TAG: ${{ steps.metadata.outputs.latest }}
-        run: |
-          docker tag "$DOCKER_REPOSITORY:$IMAGE_TAG" "$DOCKER_REPOSITORY:$LATEST_TAG"
-          docker push "$DOCKER_REPOSITORY:$IMAGE_TAG"
-          docker push "$DOCKER_REPOSITORY:$LATEST_TAG"
       - name: Update GitOps manifest
         run: |
           mkdir -p "gitops/aws-monitor/$RELEASE_ENV"
@@ -249,9 +291,6 @@ jobs:
           git -C version-update add .app-info.json
           git -C version-update commit -m "Advance $RELEASE_ENV app patch version [skip ci]"
           git -C version-update push origin HEAD:main
-      - name: Log out of Docker Hub
-        if: always()
-        run: docker logout
       - name: Save release reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -167,6 +167,23 @@ podTemplate(
             )
         }
         stage('Security Scans') {
+            container('docker') {
+                withEnv(["CI_IMAGE=${dockerRepoOwner}/${image}:latest"]) {
+                    sh '''
+                        set -eu
+                        mkdir -p reports
+                        digest=$(docker buildx imagetools inspect "$CI_IMAGE" --format '{{.Manifest.Digest}}')
+                        printf '%s\n' "$digest" | grep -Eq '^sha256:[a-f0-9]{64}$'
+                        printf 'pod:\\n  digest: %s\\n' "$digest" > reports/ci-values.yaml
+                    '''
+                }
+            }
+            container('helm') {
+                sh '''
+                    mkdir -p reports
+                    helm template aws-monitor chart --namespace ci -f reports/ci-values.yaml > reports/chart.yaml
+                '''
+            }
             parallel(
                 'Bandit Testing': {
                     container('bandit') {
@@ -181,7 +198,7 @@ podTemplate(
                         reportCommand('reports/checkov-dockerfile.txt',
                             '/tmp/aws-monitor-checkov/bin/python -m checkov.main -f Dockerfile --framework dockerfile')
                         reportCommand('reports/checkov-helm.txt',
-                            '/tmp/aws-monitor-checkov/bin/python -m checkov.main -d ./chart --framework helm')
+                            '/tmp/aws-monitor-checkov/bin/python -m checkov.main -f reports/chart.yaml --framework kubernetes')
                     }
                 },
                 'Semgrep Testing': {
@@ -250,8 +267,33 @@ podTemplate(
             )
         }
         stage('Create Manifest') {
+            def releaseTag = envName == 'Production' ? version : "${version}-${envShortName}"
+            def imageDigest
+            container('docker') {
+                withEnv(["RELEASE_IMAGE=${dockerRepoOwner}/${image}:${releaseTag}"]) {
+                    def reference = sh(script: '''docker image inspect --format '{{index .RepoDigests 0}}' "$RELEASE_IMAGE"''',
+                                       returnStdout: true).trim()
+                    imageDigest = reference.tokenize('@').last()
+                    if (!(imageDigest ==~ /sha256:[a-f0-9]{64}/)) {
+                        error('Published image has no valid registry digest')
+                    }
+                    writeFile file: 'reports/image-reference.txt', text: "${reference}\n"
+                }
+            }
             container('helm') {
-                manifests.create(envName, envShortName, gitOpsRepo, currentRepo, dockerRepoOwner, image, version)
+                withEnv(["RELEASE_ENV=${envShortName}", "VALUES_REPO=${gitOpsRepo}",
+                         "RELEASE_IMAGE=${dockerRepoOwner}/${image}", "RELEASE_TAG=${releaseTag}",
+                         "RELEASE_DIGEST=${imageDigest}"]) {
+                    sh '''
+                        set -eu
+                        mkdir -p manifests
+                        helm template aws-monitor chart --namespace "$RELEASE_ENV" \
+                            -f "$VALUES_REPO/$RELEASE_ENV/values.yaml" \
+                            --set-string "pod.image=$RELEASE_IMAGE" \
+                            --set-string "pod.tag=$RELEASE_TAG" \
+                            --set-string "pod.digest=$RELEASE_DIGEST" > manifests/app.yaml
+                    '''
+                }
             }
         }
         stage('Validate Manifest') {
@@ -306,7 +348,7 @@ podTemplate(
         }
         } finally {
             stage('Archive Artifacts') {
-                archiveArtifacts artifacts: 'reports/**/*.txt,manifests/app.yaml',
+                archiveArtifacts artifacts: 'reports/**/*.txt,reports/ci-values.yaml,manifests/app.yaml',
                     allowEmptyArchive: true, fingerprint: true,
                     onlyIfSuccessful: false, followSymlinks: false
             }

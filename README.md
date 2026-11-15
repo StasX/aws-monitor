@@ -80,12 +80,12 @@ if desired. Optional Actions variables `DOCKERHUB_REPOSITORY` and
 Release behavior follows the Jenkins shared library:
 
 1. Read the selected version from `.app-info.json`.
-2. Read `<environment>/values.yaml` from the GitOps `monitor` branch and overlay
-   it on the current chart defaults. Render into the selected environment's namespace.
-3. Validate the rendered manifest with Checkov, kube-score, and Trivy.
-4. Build the Docker image and reject HIGH/CRITICAL vulnerabilities with Trivy.
-5. Publish `<version>-dev`/`latest-dev`, `<version>-qa`/`latest-qa`, or production
-   `<version>`/`latest` tags, preserving Jenkins tag naming.
+2. Build the Docker image and reject HIGH/CRITICAL vulnerabilities with Trivy.
+3. Publish `<version>-dev`/`latest-dev`, `<version>-qa`/`latest-qa`, or production
+   `<version>`/`latest` tags, preserving Jenkins tag naming, and read its registry digest.
+4. Read `<environment>/values.yaml` from the GitOps `monitor` branch, overlay it
+   on the chart defaults, and render in the environment's namespace using that digest.
+5. Validate the rendered manifest with Checkov, kube-score, and Trivy before GitOps updates.
 6. Commit the manifest to `aws-monitor/<environment>/app.yaml` on GitOps `main`.
 7. Increment only the selected environment's patch version in this repository.
 
@@ -96,7 +96,17 @@ Workflow artifacts are retained for 14 days and can be downloaded from the run's
 - `security-reports-<scanner>`: Bandit, Checkov, and Semgrep text reports.
 - `manifest-<environment>-<run>-<attempt>`: the rendered Helm manifest.
 - `release-reports-<environment>-<run>-<attempt>`: rendered-manifest scan reports,
-  Trivy JSON reports for the manifest and image, and the Docker build log.
+  Trivy JSON reports for the manifest and image, and the published image reference.
+- Docker Buildx build records (`*.dockerbuild`): build details and logs, retained
+  for 14 days by the Docker build action.
+
+Docker builds and publishing use `docker/setup-buildx-action` and
+`docker/build-push-action`; `docker/login-action` handles registry authentication
+and logout. The first build loads the image locally for Trivy. Publishing reuses
+the same builder cache and immutable Git context, and the workflow verifies that
+its digest matches the scanned build before updating GitOps. Both builds target
+`linux/amd64`. Provenance and SBOM attestations are disabled on these two builds
+so their image digests can be compared directly.
 
 Artifact uploads run even after a failed step, preserving reports produced before
 the failure. Checks skipped after a failure do not produce reports. Logging through
@@ -107,7 +117,9 @@ Hub; they are not duplicated as downloadable image archives.
 GitOps performs
 cluster reconciliation; the workflow does not run `kubectl apply` or `helm upgrade`
 and needs no AWS or Kubernetes credentials. Scanners fail the pipeline on findings;
-no scan failures are suppressed. Fix any reported findings before releasing.
+the Deployment has one documented exception for `CKV_K8S_35` because credentials
+are intentionally supplied through runtime environment variables from Kubernetes
+Secrets. All other scan failures remain blocking.
 
 Releases are serialized across environments, and a release stops before publishing
 if application `main` has changed since it started. Publishing images and updating
@@ -134,8 +146,8 @@ Pipeline stages include:
 - GitOps repository update.
 - Application patch-version update in this repository.
 
-Manifest generation, publishing, and version updates delegate to the external
-shared library. The checked-in Jenkinsfile has no direct `helm upgrade` or
+Publishing and version updates delegate to the external shared library. Manifest
+rendering in the Jenkinsfile pins the pushed image by registry digest. The checked-in Jenkinsfile has no direct `helm upgrade` or
 `kubectl apply` step; cluster reconciliation depends on your GitOps setup.
 
 The `Application Tests` stage runs the full unittest suite in a dedicated container
@@ -145,7 +157,7 @@ and execution. Tests mock AWS and require no AWS credentials. Helm tests skip
 when Helm is unavailable (including in the dedicated Python test container);
 live MongoDB tests skip unless `MONGODB_TEST_URI` is configured.
 
-Jenkins also archives `reports/**/*.txt` and `manifests/app.yaml` in an
+Jenkins also archives `reports/**/*.txt`, generated `reports/ci-values.yaml`, and `manifests/app.yaml` in an
 **Archive Artifacts** stage inside a `finally` block. Reports include application
 tests, Bandit, Checkov, Semgrep, Trivy image/manifest scans, kube-score output,
 and the Docker build log.
@@ -574,7 +586,7 @@ hostname, and set all three ingress values:
 
 ```sh
 kubectl -n dev create secret tls aws-monitor-tls --cert=fullchain.pem --key=privkey.pem
-helm upgrade --install aws-monitor ./chart --namespace dev --set pod.tag=YOUR_IMAGE_TAG --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
+helm upgrade --install aws-monitor ./chart --namespace dev --set-string pod.digest=sha256:YOUR_IMAGE_DIGEST --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
 ```
 
 The chart rejects enabled ingress without a host or TLS Secret name. The ingress
@@ -615,15 +627,45 @@ independent of `externalSecret.region`, which selects the Secrets Manager region
 Increasing workers also increases the number of AWS child processes and memory
 usage per pod.
 
-For your ingress deployment, install with an explicit image tag, hostname, and
+For your ingress deployment, install with an explicit image digest, hostname, and
 existing TLS Secret. Create the namespace, AWS and MongoDB Secrets, and TLS Secret
 before running this command:
 
 ```sh
-helm upgrade --install aws-monitor ./chart --namespace dev --set pod.image=sm1986/aws-monitor --set pod.tag=YOUR_IMAGE_TAG --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
+helm upgrade --install aws-monitor ./chart --namespace dev --set pod.image=sm1986/aws-monitor --set-string pod.digest=sha256:YOUR_IMAGE_DIGEST --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
 ```
 
-The default image is `sm1986/aws-monitor:latest`; override it for your registry and release.
+The default repository is `sm1986/aws-monitor`. `pod.digest` is required and must
+be `sha256:` followed by 64 lowercase hexadecimal characters. The Deployment uses
+`repository@digest`; `pod.tag` is retained for compatibility but does not select
+the running image. Both release pipelines supply the newly published digest.
+For manual deployments, inspect your released tag with
+`docker buildx imagetools inspect sm1986/aws-monitor:YOUR_IMAGE_TAG` and use its
+registry digest.
+
+Use a non-default namespace such as `dev`, `qa`, or `prod`. Resources explicitly
+use the Helm release namespace. For local chart validation without a release image:
+
+```sh
+mkdir -p reports
+digest=$(docker buildx imagetools inspect sm1986/aws-monitor:latest --format '{{.Manifest.Digest}}')
+printf 'pod:\n  digest: %s\n' "$digest" > reports/ci-values.yaml
+helm lint chart --strict --namespace ci -f reports/ci-values.yaml
+helm template aws-monitor chart --namespace ci -f reports/ci-values.yaml > chart-check.yaml
+checkov -f chart-check.yaml --framework kubernetes
+```
+
+Both pipelines generate `reports/ci-values.yaml` on each run by querying the
+published repository's `latest` tag and validating its SHA256 digest. GitHub uses
+`DOCKERHUB_REPOSITORY` (default `sm1986/aws-monitor`); Jenkins uses its configured
+Docker owner and image name. The repository must already have a publicly readable
+`latest` tag for these checks. Resolution failures stop validation rather than
+using a stale digest. The generated values file is saved with the reports; it is
+not checked into Git or used for deployment. Release pipelines use the newly built
+image's digest. CI scans rendered manifests so namespace and digest inputs are
+explicit. The Deployment documents a targeted `CKV_K8S_35` exception for runtime
+environment credentials from Kubernetes Secrets. Helm unit tests use a synthetic
+digest to test template behavior offline; CI security scans use the resolved digest.
 Before deployment, create the Secret named by `awsSecretName` in the release namespace,
 with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys. Alternatively, enable
 `externalSecret.enabled` to create a SecretStore and ExternalSecret. This requires
@@ -634,8 +676,16 @@ the Deployment injects it when present and allows it to be absent for long-lived
 credentials. When using External Secrets, set
 `externalSecret.includeSessionToken=true` and include the `AWS_SESSION_TOKEN`
 JSON property in Secrets Manager. Rotate all three values together and restart
-the Deployment after updating the Secret, since environment variables do not
-refresh in running pods.
+the Deployment after updating the Secret so MongoDB settings and cached AWS
+clients reload the credentials together.
+
+The existing Secret names and keys are unchanged. Kubernetes supplies `MONGODB_URI`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and optional `AWS_SESSION_TOKEN` as
+runtime environment variables through `secretKeyRef`. Secret values are not placed
+in the image, chart values, or generated manifests. No credential files are mounted.
+Restart pods after rotating Secrets because existing process environments do not
+update automatically. Local development supports `MONGODB_URI` and the standard
+Boto3 credential chain.
 
 Autoscaling requires the Kubernetes metrics server. `hpa.minReplicas` defaults to
 two; when HPA is disabled, `replicas` controls the deployment size. The disruption
@@ -646,7 +696,11 @@ Ingress is disabled by default and uses the nginx class with a Prefix path and n
 Readiness and liveness use HTTP GET checks against `/health` on the named `http` port, without authentication or AWS access.
 `/health` returns `{"status":"ok"}` without contacting MongoDB or AWS, so a
 successful probe does not confirm dashboard dependencies are available.
-Pod security settings belong under `securityContext`, including optional UID/GID overrides.
+Pod security settings belong under `securityContext`. Defaults use UID/GID 10001,
+matching the Docker image. The pod and container use `RuntimeDefault` seccomp,
+and automatic Kubernetes service-account token mounting is disabled because the
+app does not call the Kubernetes API. Remove old UID/GID overrides from environment
+values if they conflict with these defaults.
 
 `/metrics` exports Prometheus application metrics without credentials or AWS calls:
 

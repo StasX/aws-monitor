@@ -31,15 +31,19 @@ mongodb:
 
 pod:
   image: sm1986/aws-monitor
-  tag: latest
+  tag: ""
+  # Required for deployments. Obtain from the pushed image's registry digest.
+  digest: ""
   targetPort: 5001
   port: 80
 
 securityContext:
   enabled: true
   runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
 
 awsSecretName: aws-monitor-secret
 

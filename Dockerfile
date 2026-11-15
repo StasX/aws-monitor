@@ -16,7 +16,7 @@ RUN apk update && \
     apk upgrade --no-cache && \
     apk add --no-cache curl && \
     python -m pip install --upgrade pip
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN addgroup -S -g 10001 appgroup && adduser -S -u 10001 appuser -G appgroup
 COPY --from=builder /app/env /app/env
 COPY . .
 RUN chown -R appuser:appgroup /app

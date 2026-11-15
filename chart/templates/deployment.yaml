@@ -2,6 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}-deploy
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    checkov.io/skip1: "CKV_K8S_35=Runtime environment credentials from Kubernetes Secret references are an intentional application requirement."
   labels:
     {{- include "exam.labels" . | nindent 4 }}
 spec:
@@ -18,13 +21,14 @@ spec:
         app: {{ .Release.Name }}
         {{- include "exam.labels" . | nindent 8 }}
     spec:
+      automountServiceAccountToken: false
       {{- if .Values.securityContext.enabled }}
       securityContext:
         {{- omit .Values.securityContext "enabled" | toYaml | nindent 8 }}
       {{- end }}
       containers:
         - name: {{ .Release.Name }}
-          image: {{ printf "%s:%s" .Values.pod.image .Values.pod.tag | quote }}
+          image: {{ printf "%s@%s" .Values.pod.image (required "pod.digest is required; supply the pushed image SHA256 digest" .Values.pod.digest) | quote }}
           imagePullPolicy: Always
 
           readinessProbe:
@@ -42,6 +46,8 @@ spec:
             periodSeconds: 20
 
           securityContext:
+            seccompProfile:
+              type: RuntimeDefault
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             privileged: false
@@ -91,7 +97,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.awsSecretName }}
                   key: AWS_ACCESS_KEY_ID
-
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:

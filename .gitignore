@@ -10,3 +10,4 @@ set_secrets.ps1
 argo-gitops/
 manifest/
 manifests/
+reports/

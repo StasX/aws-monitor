@@ -10,7 +10,9 @@ CHART = Path(__file__).resolve().parents[1] / 'chart'
 @unittest.skipUnless(shutil.which('helm'), 'Helm is required for chart validation')
 class HelmSchemaTests(unittest.TestCase):
     def render(self, *overrides):
-        command = ['helm', 'template', 'schema-test', str(CHART)]
+        command = ['helm', 'template', 'schema-test', str(CHART), '--namespace', 'ci']
+        if not any(value.startswith('pod.digest=') for value in overrides):
+            command.extend(['--set-string', 'pod.digest=sha256:' + '0' * 64])
         for override in overrides:
             # Helm --set parses decimal values as strings; --set-json preserves numbers.
             value = override.partition('=')[2]
@@ -44,6 +46,7 @@ class HelmSchemaTests(unittest.TestCase):
             'app.awsRegion': [''],
             'pod.targetPort': ['0', '65536', '1.5'],
             'pod.port': ['0', '65536'],
+            'pod.digest': ['invalid', 'sha256:1234'],
             'replicas': ['0', '1.5'],
             'dashboard.maxFailures': ['0', '101', '1.5'],
             'dashboard.windowSeconds': ['0', '3601', '1.5'],
@@ -63,6 +66,24 @@ class HelmSchemaTests(unittest.TestCase):
         result = self.render('app.cacheTTL=60')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('cacheTTL', result.stderr)
+
+    def test_deployment_requires_digest_and_references_runtime_secrets(self):
+        missing = self.render('pod.digest=')
+        self.assertNotEqual(missing.returncode, 0)
+        self.assertIn('pod.digest is required', missing.stderr)
+        result = self.render()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('namespace: ci', result.stdout)
+        self.assertIn('automountServiceAccountToken: false', result.stdout)
+        self.assertIn('type: RuntimeDefault', result.stdout)
+        self.assertIn('runAsUser: 10001', result.stdout)
+        self.assertIn('name: MONGODB_URI', result.stdout)
+        self.assertIn('name: AWS_SECRET_ACCESS_KEY', result.stdout)
+        self.assertIn('name: AWS_SESSION_TOKEN', result.stdout)
+        self.assertIn('optional: true', result.stdout)
+        self.assertEqual(result.stdout.count('secretKeyRef:'), 4)
+        self.assertNotIn('volumeMounts:', result.stdout)
+        self.assertIn('image: "sm1986/aws-monitor@sha256:', result.stdout)
 
     def test_trusted_proxy_networks_are_injected(self):
         result = self.render('dashboard.trustedProxyCidrs[0]=10.20.0.0/24')

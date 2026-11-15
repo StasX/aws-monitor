@@ -5,6 +5,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ .Release.Name }}-ing
+  namespace: {{ .Release.Namespace }}
   labels:
     {{- include "exam.labels" . | nindent 4 }}
   annotations:
