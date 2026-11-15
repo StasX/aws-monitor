@@ -10,7 +10,8 @@ venv/
 .venv/
 .git/
 .github/
-.env/
+**/.env
+**/.env.*
 temp/
 README*
 LICENSE*
