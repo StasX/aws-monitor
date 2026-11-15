@@ -17,6 +17,7 @@ pipeline for testing, security scanning, image publishing, and GitOps manifest u
 | `Dockerfile`, `gunicorn.conf.py` | Container image and production server configuration |
 | `chart/` | Kubernetes resources and configurable Helm values |
 | `Jenkinsfile` | CI/CD stages using the external `aws-monitor-lib` shared library |
+| `.github/workflows/ci-cd.yml` | GitHub Actions checks and manual environment releases |
 | `.app-info.json` | Application metadata and separate Dev, QA, and Production versions |
 
 ## What Has Been Implemented
@@ -49,6 +50,71 @@ The chart includes:
 - Resource requests and limits.
 - Multi-environment deployments (Dev, QA, Production).
 
+### GitHub Actions
+
+`.github/workflows/ci-cd.yml` provides the GitHub Actions equivalent of the Jenkins
+pipeline. Pull requests and pushes to `main` run application tests, Helm lint and
+schema tests, Bandit, Checkov, and Semgrep. Tests run in the same Python/Alpine
+image as the application; Helm tests also run on the host with Helm installed.
+Live MongoDB integration tests remain opt-in and skip in this workflow.
+
+To release, open **Actions > AWS Monitor CI/CD > Run workflow**, select `main`,
+and choose `dev`, `qa`, or `prod`. Release jobs run only from `main`, after all
+checks pass. Configure these GitHub Actions secrets at repository level or in
+the corresponding GitHub environment:
+
+| Secret | Purpose |
+| --- | --- |
+| `DOCKERHUB_USERNAME` | Docker Hub account allowed to publish the image |
+| `DOCKERHUB_TOKEN` | Docker Hub access token with image push permission |
+| `GITOPS_TOKEN` | Fine-grained token with Contents read/write access to the GitOps repository |
+
+The built-in `GITHUB_TOKEN` updates `.app-info.json` in this repository. Repository
+Actions settings and branch rules must permit that bot commit. Set up GitHub
+environments named `dev`, `qa`, and `prod`; use required reviewers for production
+if desired. Optional Actions variables `DOCKERHUB_REPOSITORY` and
+`GITOPS_REPOSITORY` default to `sm1986/aws-monitor` and `StasX/argo-gitops`.
+
+Release behavior follows the Jenkins shared library:
+
+1. Read the selected version from `.app-info.json`.
+2. Read `<environment>/values.yaml` from the GitOps `monitor` branch and overlay
+   it on the current chart defaults. Render into the selected environment's namespace.
+3. Validate the rendered manifest with Checkov, kube-score, and Trivy.
+4. Build the Docker image and reject HIGH/CRITICAL vulnerabilities with Trivy.
+5. Publish `<version>-dev`/`latest-dev`, `<version>-qa`/`latest-qa`, or production
+   `<version>`/`latest` tags, preserving Jenkins tag naming.
+6. Commit the manifest to `aws-monitor/<environment>/app.yaml` on GitOps `main`.
+7. Increment only the selected environment's patch version in this repository.
+
+Workflow artifacts are retained for 14 days and can be downloaded from the run's
+**Artifacts** section:
+
+- `test-reports`: application test output, Helm lint, and Helm schema test output.
+- `security-reports-<scanner>`: Bandit, Checkov, and Semgrep text reports.
+- `manifest-<environment>-<run>-<attempt>`: the rendered Helm manifest.
+- `release-reports-<environment>-<run>-<attempt>`: rendered-manifest scan reports,
+  Trivy JSON reports for the manifest and image, and the Docker build log.
+
+Artifact uploads run even after a failed step, preserving reports produced before
+the failure. Checks skipped after a failure do not produce reports. Logging through
+`tee` preserves the original command's failure status through Bash `pipefail`, so
+saving reports does not bypass release gates. Docker images are published to Docker
+Hub; they are not duplicated as downloadable image archives.
+
+GitOps performs
+cluster reconciliation; the workflow does not run `kubectl apply` or `helm upgrade`
+and needs no AWS or Kubernetes credentials. Scanners fail the pipeline on findings;
+no scan failures are suppressed. Fix any reported findings before releasing.
+
+Releases are serialized across environments, and a release stops before publishing
+if application `main` has changed since it started. Publishing images and updating
+two repositories are separate operations: if a later push fails, inspect the Docker
+tags, GitOps commit, and metadata before retrying. No force pushes are used.
+Metadata-only pushes do not trigger this workflow. The Jenkinsfile remains available;
+disable its release job when switching to Actions so the two systems do not release
+the same version concurrently.
+
 ### Jenkins Pipeline
 
 The Jenkins pipeline runs on a Kubernetes agent with separate tool containers.
@@ -76,6 +142,18 @@ in an isolated virtual environment and has a ten-minute timeout covering setup
 and execution. Tests mock AWS and require no AWS credentials. Helm tests skip
 when Helm is unavailable (including in the dedicated Python test container);
 live MongoDB tests skip unless `MONGODB_TEST_URI` is configured.
+
+Jenkins also archives `reports/**/*.txt` and `manifests/app.yaml` in an
+**Archive Artifacts** stage inside a `finally` block. Reports include application
+tests, Bandit, Checkov, Semgrep, Trivy image/manifest scans, kube-score output,
+and the Docker build log.
+Reports produced before a failure are available from the build's **Artifacts**
+section; skipped stages produce no report. Output is captured to a file and then
+printed to the console, preserving the command's exit status so failed checks
+still block publishing. Credential-bearing login commands are not captured.
+Archives are fingerprinted and retained according to the Jenkins job's build and
+artifact retention settings. Archiving requires the agent workspace to remain
+available; a lost Kubernetes agent can prevent the final stage from running.
 
 ### Jenkins Docker daemon isolation
 

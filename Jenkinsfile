@@ -11,6 +11,21 @@ def version = ""
 def image = ""
 def appInfo = [:]
 
+// Capture tool output without requiring Bash/pipefail in Alpine containers.
+// Only non-secret test/scan commands go through this helper.
+def reportCommand(String reportPath, String command) {
+    withEnv(["REPORT_PATH=${reportPath}", "REPORT_COMMAND=${command}"]) {
+        sh '''
+            set -eu
+            mkdir -p reports
+            status=0
+            sh -ec "$REPORT_COMMAND" > "$REPORT_PATH" 2>&1 || status=$?
+            cat "$REPORT_PATH"
+            exit "$status"
+        '''
+    }
+}
+
 podTemplate(
     cloud: 'kubernetes',
     containers: [
@@ -67,6 +82,7 @@ podTemplate(
     ]
 ) {
     node(POD_LABEL) {
+        try {
         stage('Docker readiness') {
             container('docker') {
                 timeout(time: 1, unit: 'MINUTES') {
@@ -103,12 +119,12 @@ podTemplate(
         stage('Application Tests') {
             container('tests') {
                 timeout(time: 10, unit: 'MINUTES') {
-                    sh '''
+                    reportCommand('reports/application-tests.txt', '''
                         set -eu
                         python -m venv /tmp/aws-monitor-tests
                         /tmp/aws-monitor-tests/bin/python -m pip install --no-cache-dir -r requirements.txt
                         /tmp/aws-monitor-tests/bin/python -m unittest discover -s tests -v
-                    '''
+                    ''')
                 }
             }
         }
@@ -155,20 +171,23 @@ podTemplate(
                 'Bandit Testing': {
                     container('bandit') {
                         echo "Running Bandit Python Static Analysis..."
-                        security.banditScan()
+                        reportCommand('reports/bandit.txt',
+                            'python -m bandit -r ./ -x ./.venv,./venv')
                     }
                 },
                 'Checkov Testing': {
                     container('checkov') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        security.checkovScan("Dockerfile", "-f", "dockerfile", "/tmp/aws-monitor-checkov")
-                        security.checkovScan("./chart", "-d", "helm", "/tmp/aws-monitor-checkov")
+                        reportCommand('reports/checkov-dockerfile.txt',
+                            '/tmp/aws-monitor-checkov/bin/python -m checkov.main -f Dockerfile --framework dockerfile')
+                        reportCommand('reports/checkov-helm.txt',
+                            '/tmp/aws-monitor-checkov/bin/python -m checkov.main -d ./chart --framework helm')
                     }
                 },
                 'Semgrep Testing': {
                     container('semgrep') {
                         echo "Running Semgrep Scans..."
-                        sh '''
+                        reportCommand('reports/semgrep.txt', '''
                             /tmp/aws-monitor-semgrep/bin/semgrep scan \\
                                 --config=p/python \\
                                 --config=p/dockerfile \\
@@ -176,14 +195,17 @@ podTemplate(
                                 --config=p/github-actions \\
                                 --metrics=off \\
                                 --error
-                        '''
+                        ''')
                     }
                 }
             )
         }
         stage('Build Docker Image') {
             container('docker') {
-              dockers.build(dockerRepoOwner, image, version, envName, envShortName)
+                def buildTag = envName == 'Production' ? version : "${version}-${envShortName}"
+                withEnv(["BUILD_IMAGE=docker.io/${dockerRepoOwner}/${image}:${buildTag}"]) {
+                    reportCommand('reports/docker-build.txt', 'docker build -t "$BUILD_IMAGE" .')
+                }
             }
         }
         stage("Run Trivy scan, login to Docker and tag Docker Image"){
@@ -191,7 +213,13 @@ podTemplate(
                 'Trivy Scan' : {
                     container('docker') {
                         echo "Running Trivy vulnerability scan on the built image..."
-                        security.trivyScanImage(dockerRepoOwner, image, version, envName, envShortName)
+                        def scanTag = envName == 'Production' ? version : "${version}-${envShortName}"
+                        withEnv(["SCAN_IMAGE=${dockerRepoOwner}/${image}:${scanTag}"]) {
+                            reportCommand('reports/trivy-image.txt', '''
+                                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+                                    aquasec/trivy image "$SCAN_IMAGE" --severity HIGH,CRITICAL --exit-code 1
+                            ''')
+                        }
                     }
                 },
                 'Tag Docker Image' : {
@@ -231,19 +259,30 @@ podTemplate(
             parallel(
                 "Checkov Test" : {
                     container('checkov') {
-                        security.checkovScan("./manifests/app.yaml", "-f", "kubernetes", "/tmp/aws-monitor-checkov")
+                        reportCommand('reports/checkov-manifest.txt',
+                            '/tmp/aws-monitor-checkov/bin/python -m checkov.main -f ./manifests/app.yaml --framework kubernetes')
                     }
                 },
                 "Kube Score Scan" : {
                     container('docker'){
                         echo "Running kube score vulnerability scan on manifest"
-                        security.kubeScoreScan(manifestPath, "app.yaml")
+                        withEnv(["SCAN_PATH=${manifestPath}"]) {
+                            reportCommand('reports/kube-score.txt', '''
+                                docker run --rm -v "$SCAN_PATH:/work" \
+                                    zegl/kube-score:latest score /work/app.yaml
+                            ''')
+                        }
                     }
                 },
                 "Trivy Scan" : {
                     container('docker'){
                         echo "Running trivy vulnerability scan on manifest"
-                        security.trivyScanFile(manifestPath, "app.yaml")
+                        withEnv(["SCAN_PATH=${manifestPath}"]) {
+                            reportCommand('reports/trivy-manifest.txt', '''
+                                docker run --rm -v "$SCAN_PATH:/work" -w /work \
+                                    aquasec/trivy:latest config app.yaml --severity HIGH,CRITICAL --exit-code 1
+                            ''')
+                        }
                     }
                 }
             )
@@ -265,7 +304,13 @@ podTemplate(
                 utils.updateVersion(githubRepoOwner, currentRepo, email, version)
             }
         }
-
+        } finally {
+            stage('Archive Artifacts') {
+                archiveArtifacts artifacts: 'reports/**/*.txt,manifests/app.yaml',
+                    allowEmptyArchive: true, fingerprint: true,
+                    onlyIfSuccessful: false, followSymlinks: false
+            }
+        }
     }
 
 }

@@ -1,0 +1,262 @@
+name: AWS Monitor CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths-ignore: [.app-info.json]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to release
+        required: true
+        type: choice
+        default: dev
+        options: [dev, qa, prod]
+
+permissions:
+  contents: read
+
+# Serialize releases across environments because they update the same metadata file.
+concurrency:
+  group: aws-monitor-${{ github.event_name == 'workflow_dispatch' && 'release' || github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.18.4
+      - name: Test with the application Python/Alpine runtime
+        run: |
+          mkdir -p reports
+          docker run --rm --mount "type=bind,source=$PWD,target=/workspace,readonly" \
+            --workdir /workspace python:3.14.4-alpine3.23 sh -ec '
+              python -m venv /tmp/tests
+              /tmp/tests/bin/pip install --no-cache-dir -r requirements.txt
+              /tmp/tests/bin/python -m unittest discover -s tests -v
+            ' 2>&1 | tee reports/application-tests.txt
+      - name: Validate Helm chart and run Helm schema tests
+        run: |
+          helm lint chart --strict 2>&1 | tee reports/helm-lint.txt
+          python3 -m unittest discover -s tests -p test_helm_schema.py -v 2>&1 | tee reports/helm-tests.txt
+      - name: Save test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        scanner: [bandit, checkov, semgrep]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.18.4
+      - name: Install scanner
+        id: scanner-install
+        env:
+          SCANNER: ${{ matrix.scanner }}
+        run: |
+          mkdir -p reports
+          python -m pip install "$SCANNER"
+      - name: Bandit
+        if: matrix.scanner == 'bandit'
+        run: bandit -r app gunicorn.conf.py 2>&1 | tee reports/bandit.txt
+      - name: Checkov
+        if: matrix.scanner == 'checkov'
+        run: |
+          checkov -f Dockerfile --framework dockerfile 2>&1 | tee reports/checkov-dockerfile.txt
+      - name: Checkov Helm chart
+        if: ${{ !cancelled() && matrix.scanner == 'checkov' && steps.scanner-install.outcome == 'success' }}
+        run: checkov -d chart --framework helm 2>&1 | tee reports/checkov-helm.txt
+      - name: Semgrep
+        if: matrix.scanner == 'semgrep'
+        run: |
+          semgrep scan --config=p/python --config=p/dockerfile \
+            --config=p/kubernetes --config=p/github-actions --metrics=off --error \
+            2>&1 | tee reports/semgrep.txt
+      - name: Save security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ matrix.scanner }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    needs: [tests, security]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: write
+    env:
+      RELEASE_ENV: ${{ inputs.environment }}
+      DOCKER_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY || 'sm1986/aws-monitor' }}
+      GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY || 'StasX/argo-gitops' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Verify credentials are configured
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GITOPS_TOKEN: ${{ secrets.GITOPS_TOKEN }}
+        run: |
+          test -n "$DOCKERHUB_USERNAME" || { echo 'Missing DOCKERHUB_USERNAME'; exit 1; }
+          test -n "$DOCKERHUB_TOKEN" || { echo 'Missing DOCKERHUB_TOKEN'; exit 1; }
+          test -n "$GITOPS_TOKEN" || { echo 'Missing GITOPS_TOKEN'; exit 1; }
+      - name: Read release metadata
+        id: metadata
+        run: python3 .github/scripts/release_metadata.py prepare
+      - name: Check out environment values
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GITOPS_REPOSITORY }}
+          ref: monitor
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops-values
+          persist-credentials: false
+      - uses: azure/setup-helm@v5
+        with:
+          version: v3.18.4
+      - name: Render environment manifest
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
+        run: |
+          mkdir -p manifests reports
+          test -f "gitops-values/$RELEASE_ENV/values.yaml"
+          helm template aws-monitor chart --namespace "$RELEASE_ENV" \
+            -f "gitops-values/$RELEASE_ENV/values.yaml" \
+            --set-string "pod.image=$DOCKER_REPOSITORY" \
+            --set-string "pod.tag=$IMAGE_TAG" > manifests/app.yaml
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Validate rendered manifest with Checkov
+        run: |
+          python -m pip install checkov
+          checkov -f manifests/app.yaml --framework kubernetes 2>&1 | tee reports/checkov-manifest.txt
+      - name: Validate rendered manifest with kube-score
+        run: |
+          docker run --rm --mount "type=bind,source=$PWD/manifests,target=/work,readonly" \
+            zegl/kube-score:v1.20.0 score /work/app.yaml 2>&1 | tee reports/kube-score.txt
+      - name: Validate rendered manifest with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: config
+          scan-ref: manifests/app.yaml
+          format: json
+          output: reports/trivy-manifest.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: Build image
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
+        run: docker build --tag "$DOCKER_REPOSITORY:$IMAGE_TAG" . 2>&1 | tee reports/docker-build.txt
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
+          format: json
+          output: reports/trivy-image.json
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+      - name: Save rendered manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifest-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: manifests/app.yaml
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Check out GitOps destination
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ env.GITOPS_REPOSITORY }}
+          ref: main
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+          fetch-depth: 0
+      - name: Check out current application branch for version update
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: version-update
+      - name: Reject a stale release before publishing
+        run: |
+          test "$(git -C version-update rev-parse HEAD)" = "$GITHUB_SHA" || {
+            echo 'main changed while this release was running. Start a new release.'
+            exit 1
+          }
+      - name: Log in to Docker Hub
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+      - name: Publish scanned image
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.tag }}
+          LATEST_TAG: ${{ steps.metadata.outputs.latest }}
+        run: |
+          docker tag "$DOCKER_REPOSITORY:$IMAGE_TAG" "$DOCKER_REPOSITORY:$LATEST_TAG"
+          docker push "$DOCKER_REPOSITORY:$IMAGE_TAG"
+          docker push "$DOCKER_REPOSITORY:$LATEST_TAG"
+      - name: Update GitOps manifest
+        run: |
+          mkdir -p "gitops/aws-monitor/$RELEASE_ENV"
+          cp manifests/app.yaml "gitops/aws-monitor/$RELEASE_ENV/app.yaml"
+          git -C gitops config user.name 'github-actions[bot]'
+          git -C gitops config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C gitops add "aws-monitor/$RELEASE_ENV/app.yaml"
+          if ! git -C gitops diff --cached --quiet; then
+            git -C gitops commit -m "Update aws-monitor in $RELEASE_ENV"
+            git -C gitops pull --rebase origin main
+            git -C gitops push origin HEAD:main
+          fi
+      - name: Advance selected environment patch version
+        run: |
+          python3 .github/scripts/release_metadata.py bump --path version-update/.app-info.json
+          git -C version-update config user.name 'github-actions[bot]'
+          git -C version-update config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C version-update add .app-info.json
+          git -C version-update commit -m "Advance $RELEASE_ENV app patch version [skip ci]"
+          git -C version-update push origin HEAD:main
+      - name: Log out of Docker Hub
+        if: always()
+        run: docker logout
+      - name: Save release reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-reports-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
