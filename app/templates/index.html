@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+{% macro icon(name) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% if name == 'bolt' %}<path d="M13 2 4 13h7l-1 9L21 9h-8l2-7Z" fill="currentColor" stroke="none"/>
+{% elif name == 'compute' %}<rect x="5" y="5" width="14" height="14" rx="3"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 2v3m6-3v3M9 19v3m6-3v3M2 9h3m-3 6h3m14-6h3m-3 6h3"/>
+{% elif name == 'network' %}<rect x="8" y="3" width="8" height="6" rx="1"/><rect x="2" y="16" width="7" height="5" rx="1"/><rect x="15" y="16" width="7" height="5" rx="1"/><path d="M12 9v4M5 16v-3h14v3"/>
+{% elif name == 'balance' %}<path d="M12 3v18M4 7h16M4 7l-3 7h6L4 7Zm16 0-3 7h6l-3-7ZM8 21h8"/>
+{% elif name == 'image' %}<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-7 5 8"/>
+{% elif name == 'search' %}<circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/>
+{% elif name == 'refresh' %}<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3"/>
+{% else %}<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>{% endif %}
+</svg>
+{%- endmacro %}
+{% set sections = [
+    ('instances', 'EC2 instances', 'Compute', 'compute', 'instance_data', instance_data, ['ID', 'State', 'Type', 'Public IP']),
+    ('vpcs', 'Virtual private clouds', 'Networking', 'network', 'vpc_data', vpc_data, ['VPC ID', 'CIDR']),
+    ('balancers', 'Load balancers', 'Traffic distribution', 'balance', 'lb_data', lb_data, ['LB Name', 'DNS Name']),
+    ('images', 'Machine images', 'Account-owned AMIs', 'image', 'ami_data', ami_data, ['AMI ID', 'Name'])
+] %}
+{% block content %}
+<aside class="sidebar" aria-label="Main navigation">
+    <a class="brand" href="{{ url_for('resources_view.home') }}"><span class="brand-mark">{{ icon('bolt') }}</span><span>AWS<span class="brand-light"> Monitor</span><small>CLOUD RESOURCE EXPLORER</small></span></a>
+    <div class="nav-label">WORKSPACE</div>
+    <nav><a class="nav-item active" href="#main">{{ icon('overview') }} Overview <span class="nav-dot"></span></a>
+    <div class="nav-label resources-label">RESOURCES</div>
+    {% for id, title, subtitle, symbol, key, rows, columns in sections %}
+    <a class="nav-item" href="#{{ id }}">{{ icon(symbol) }} {{ title }} <span class="nav-count">{{ '—' if errors.get(key) else rows|length }}</span></a>
+    {% endfor %}</nav>
+    <div class="sidebar-bottom"><span class="region-orbit"></span><div><strong>{{ config.AWS_REGION }}</strong><small>Current AWS region</small></div></div>
+</aside>
+<div class="workspace">
+    <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong>Overview</strong></div><span class="region-pill"><span class="small-dot"></span>{{ config.AWS_REGION }}</span></header>
+    <main id="main" tabindex="-1">
+        <div class="page-heading"><div><div class="eyebrow">YOUR CLOUD, AT A GLANCE</div><h1>Resource overview<span>.</span></h1><p>A clear view of the infrastructure powering your cloud.</p></div><a class="refresh-button" href="{{ url_for('resources_view.home') }}">{{ icon('refresh') }} Reload view</a></div>
+        <div class="summary-heading"><span>RESOURCE INVENTORY</span><span>{{ sections|length }} resource types <span class="separator">&middot;</span> {{ config.AWS_REGION }}</span></div>
+        <div class="summary-grid">
+        {% for id, title, subtitle, symbol, key, rows, columns in sections %}
+            <a href="#{{ id }}" class="summary-card {{ symbol }}"><div class="card-top"><span class="resource-icon">{{ icon(symbol) }}</span><span class="card-arrow" aria-hidden="true">&#8599;</span></div><div class="resource-number">{{ '—' if errors.get(key) else rows|length }}</div><div class="resource-title">{{ title }}</div><div class="resource-description">{{ 'Data unavailable' if errors.get(key) else subtitle }}</div></a>
+        {% endfor %}
+        </div>
+        <div class="inventory-toolbar"><div><h2>Explore resources</h2><p>Inventory across your selected region.</p></div><label class="search-box">{{ icon('search') }}<span class="sr-only">Search resources</span><input id="resource-search" type="search" placeholder="Search by ID, name, or address..." autocomplete="off"></label></div>
+        <p id="search-status" class="search-status" aria-live="polite"></p>
+        {% for id, title, subtitle, symbol, key, rows, columns in sections %}
+        <section class="resource-panel" id="{{ id }}" aria-labelledby="{{ id }}-title" data-max-age="{{ config.AWS_MAX_DATA_AGE }}">
+            <div class="panel-heading"><span class="panel-icon {{ symbol }}">{{ icon(symbol) }}</span><h2 id="{{ id }}-title">{{ title }}</h2><span class="count-badge">{{ 'Unavailable' if errors.get(key) else rows|length }}</span><span class="panel-subtitle">{{ subtitle }}</span></div>
+            {% set fetched = freshness.get(key) if freshness is defined else none %}
+            <div class="fetch-status {{ 'stale' if fetched and fetched.stale else '' }}">
+            {% if fetched %}
+                <span>{{ 'Expired data' if fetched.expired else ('Stale data' if fetched.stale else 'Last fetched') }}</span>
+                <time datetime="{{ fetched.fetched_at }}">{{ fetched.fetched_label }}</time>
+                <span class="data-age" data-age-seconds="{{ fetched.age_seconds }}">{{ fetched.age_seconds }} seconds ago</span>
+            {% else %}<span>No successful fetch yet</span>{% endif %}
+            </div>
+            {% if warnings is defined and warnings.get(key) %}<div class="error-message" role="status">{{ warnings[key] }}</div>{% endif %}
+            {% if errors.get(key) %}<div class="error-message" role="alert"><span aria-hidden="true">!</span><div><strong>Could not load this resource</strong><p>{{ errors[key] }}</p></div></div>
+            {% else %}
+            <div class="table-scroll"><table><caption class="sr-only">{{ title }} in {{ config.AWS_REGION }}</caption><thead><tr>{% for column in columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead><tbody>
+            {% for row in rows %}<tr data-resource-row>{% for column in columns %}<td>{% if column == 'State' %}<span class="state-badge {{ 'running' if row[column] == 'running' else 'inactive' }}"><span></span>{{ row[column] }}</span>{% else %}<span class="{{ 'mono' if column in ['ID', 'VPC ID', 'AMI ID', 'CIDR', 'Public IP', 'DNS Name'] else '' }}">{{ row[column] }}</span>{% endif %}</td>{% endfor %}</tr>
+            {% else %}<tr><td colspan="{{ columns|length }}" class="empty-state"><span class="empty-icon">{{ icon(symbol) }}</span><strong>No {{ title|lower }} found</strong><span>There are no resources of this type in {{ config.AWS_REGION }}.</span></td></tr>{% endfor %}
+            </tbody></table></div>
+            <div class="no-matches" hidden>No matching resources in this section.</div>
+            {% endif %}
+        </section>
+        {% endfor %}
+        <footer class="page-footer"><span><span class="footer-mark">{{ icon('bolt') }}</span> AWS Monitor</span><span>Read-only resource inventory <span class="separator">&middot;</span> {{ config.AWS_REGION }}</span></footer>
+    </main>
+</div>
+{% endblock %}

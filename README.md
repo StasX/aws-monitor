@@ -72,6 +72,95 @@ The pipeline automatically performs security and quality analysis using:
 - **Checkov** – Infrastructure as Code (IaC) security scanning.
 - **Trivy** – Container image vulnerability scanning.
 
+## Application structure and local development
+
+The Flask application follows the layered structure of the
+[vacations-agency Flask app](https://github.com/StasX/vacations-agency/tree/main/Flask):
+
+```text
+app/
+  app.py                       # Application setup and blueprint registration
+  views/resources_view.py      # Dashboard route
+  views/monitoring_view.py     # Health and metrics routes
+  facades/resources_facade.py  # Dashboard orchestration
+  logic/resources_logic.py    # AWS response transformations
+  logic/resources_cache.py    # Shared clients, concurrent refresh, result caching
+  logic/resource_worker.py    # Reusable isolated processes and enforced deadlines
+  utils/dal.py                # Boto3 data access
+  utils/app_config.py         # Environment configuration
+  templates/layout.html      # Shared HTML layout
+  templates/index.html       # Resource tables
+```
+
+The request flow is view → facade → logic → DAL. AWS clients are created only
+for dashboard requests, so health and metrics checks do not require credentials.
+Run locally with `python -m pip install -r requirements.txt`
+followed by `python -m app` (port 5001), or use `python -m flask --app app run --port=5001`.
+AWS credentials use the standard Boto3 credential chain; `AWS_REGION` defaults to
+`us-east-1`.
+
+Successful resource sections are cached for 30 seconds per application worker.
+Set `AWS_CACHE_TTL` to change this duration, or to `0` to disable result caching.
+Refreshes fetch resource types concurrently and reuse AWS clients. Failed sections
+show an error and wait `AWS_FAILURE_COOLDOWN` seconds (default 10) before a later
+visit can retry. Set it to `0` to disable the cooldown. Previously fetched data
+remains visible with a warning during failures. A request initiating a refresh waits at
+most `AWS_REFRESH_TIMEOUT` seconds (default 3). Visits reuse running queries while
+independently refreshing other expired sections or retrying sections whose cooldown
+has ended. Requests only wait for queries they start, showing previous data with a warning, or an unavailable
+message if no previous data exists. Requests use a bounded pool of four supervisors
+to manage reusable resource processes; the HTTP wait limit does not cancel them.
+AWS clients use short connection/read timeouts and bounded retries.
+Each resource fetch also has an `AWS_TASK_TIMEOUT` budget (default 15 seconds),
+covering process startup, AWS calls, and pagination. Each resource type runs in its
+own spawned process. A supervisor terminates that process when the deadline is
+reached, including an in-flight SDK call, discards incomplete results, and applies
+the failure cooldown. The next attempt starts a fresh process for that section.
+Successful processes remain alive and reuse their AWS sessions and clients.
+There can be up to four child processes per application worker, so account for
+their memory usage when choosing Gunicorn concurrency. Processes are created only
+for dashboard queries; health and metrics endpoints do not start them.
+Each section shows the UTC time of its last successful fetch and its age. Ages
+advance in the browser without reloading. Failed refreshes retain that original
+timestamp and mark previous results as stale, including previously empty results.
+A section that has never loaded successfully is labeled accordingly.
+Results are removed once they reach `AWS_MAX_DATA_AGE` (default 900 seconds),
+even if the normal cache TTL is longer. The dashboard retains the fetch timestamp
+and displays an expired-data message until a refresh succeeds. Open browser pages
+also remove expired rows and counts automatically. The cache releases expired
+payloads when accessed, retaining only their fetch metadata.
+Cached data and clients are not shared
+between worker processes or Kubernetes replicas. Restart the app after changing
+environment credentials or static configuration.
+
+Numeric settings are validated at startup. Invalid text, NaN, infinity, fractions
+for integer settings, and values outside these inclusive ranges are rejected with
+the setting name and allowed range:
+
+| Setting | Default | Allowed range |
+| --- | --- | --- |
+| `AWS_CACHE_TTL` | 30 seconds | 0–86400 seconds |
+| `AWS_REFRESH_TIMEOUT` | 3 seconds | 0–30 seconds |
+| `AWS_FAILURE_COOLDOWN` | 10 seconds | 0–3600 seconds |
+| `AWS_TASK_TIMEOUT` | 15 seconds | 0.1–300 seconds |
+| `AWS_MAX_DATA_AGE` | 900 seconds | 1–86400 seconds |
+| `WEB_CONCURRENCY` | 2 | 1–32 workers (integer) |
+| `GUNICORN_THREADS` | 4 | 1–64 threads (integer) |
+
+Zero disables result caching or the failure cooldown, or makes the HTTP refresh
+wait return immediately. The background task budget must remain positive.
+
+Docker runs Gunicorn using `gunicorn.conf.py`, listening on port 5001 with two
+workers and four request threads per worker. Set `WEB_CONCURRENCY` and
+`GUNICORN_THREADS` to tune concurrency, and `APP_HOST` to change the bind address.
+Access and error logs go to container output; worker heartbeat files use
+`/dev/shm` to support the Helm deployment's read-only root filesystem.
+On Linux, you can also run `gunicorn --config gunicorn.conf.py 'app.app:create_app()'`.
+Use `python -m app` for local development on Windows.
+
+Run the application tests with `python -m unittest discover -s tests -v`.
+They mock the AWS session and do not require AWS credentials.
+
 ## Helm deployment configuration
 
 Install with an explicit image tag published by your pipeline:

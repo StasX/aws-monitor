@@ -1,10 +1,12 @@
 env/
+.env/
+venv/
+.venv/
+__pycache__/
+temp/
 aws-values.yaml
 docker-compose.yml
-__pycache__/
 set_secrets.ps1
-venv/
-temp/
 argo-gitops/
 manifest/
 manifests/
