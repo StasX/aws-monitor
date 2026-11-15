@@ -3,6 +3,7 @@ from .env import env_number
 
 
 class AppConfig:
+    AUTH_TRUSTED_PROXY_CIDRS = environ.get('AUTH_TRUSTED_PROXY_CIDRS', '')
     AUTH_MAX_FAILURES = env_number('AUTH_MAX_FAILURES', 5, minimum=1, maximum=100, integer=True)
     AUTH_WINDOW_SECONDS = env_number('AUTH_WINDOW_SECONDS', 60, minimum=1, maximum=3600, integer=True)
     MONGODB_URI = environ.get('MONGODB_URI', '')

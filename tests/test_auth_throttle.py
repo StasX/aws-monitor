@@ -7,6 +7,7 @@ from pymongo.errors import ConfigurationError, DuplicateKeyError, PyMongoError
 
 from app import create_app
 from app.utils.auth_throttle import AuthThrottle
+from app.utils.client_address import parse_trusted_proxies
 
 
 class AuthThrottleTests(unittest.TestCase):
@@ -44,6 +45,37 @@ class AuthThrottleTests(unittest.TestCase):
             self.throttle.reserve.assert_called_with('127.0.0.1', 2, 60)
             self.client.get('/', auth=('other', 'wrong'))
             self.throttle.reserve.assert_called_with('127.0.0.1', 2, 60)
+
+    def test_trusted_proxy_separates_clients_and_ignores_forged_prefix(self):
+        self.app.extensions['trusted_proxy_networks'] = parse_trusted_proxies('10.20.0.0/24')
+        for client in ['203.0.113.5', '203.0.113.6']:
+            self.attempt(headers={'X-Forwarded-For': f'192.0.2.99, {client}'},
+                         environ_overrides={'REMOTE_ADDR': '10.20.0.2'})
+            self.throttle.reserve.assert_called_with(client, 2, 60)
+
+    def test_multiple_trusted_proxies_and_ipv6(self):
+        self.app.extensions['trusted_proxy_networks'] = parse_trusted_proxies(
+            '10.20.0.0/24,2001:db8:1::/64')
+        self.attempt(headers={'X-Forwarded-For': '2001:db8:2::5, 2001:db8:1::2'},
+                     environ_overrides={'REMOTE_ADDR': '10.20.0.2'})
+        self.throttle.reserve.assert_called_with('2001:db8:2::5', 2, 60)
+
+    def test_untrusted_peer_cannot_supply_forwarding_chain(self):
+        self.app.extensions['trusted_proxy_networks'] = parse_trusted_proxies('10.20.0.0/24')
+        self.attempt(headers={'X-Forwarded-For': '203.0.113.5, 10.20.0.2'})
+        self.throttle.reserve.assert_called_with('127.0.0.1', 2, 60)
+
+    def test_missing_or_malformed_forwarding_chain_uses_peer(self):
+        self.app.extensions['trusted_proxy_networks'] = parse_trusted_proxies('10.20.0.0/24')
+        for value in ['', 'invalid', '203.0.113.5,', 'invalid, 203.0.113.5']:
+            self.attempt(headers={'X-Forwarded-For': value},
+                         environ_overrides={'REMOTE_ADDR': '10.20.0.2'})
+            self.throttle.reserve.assert_called_with('10.20.0.2', 2, 60)
+
+    def test_invalid_trusted_network_rejected_at_startup(self):
+        with patch('app.app.AppConfig.AUTH_TRUSTED_PROXY_CIDRS', 'invalid'):
+            with self.assertRaisesRegex(ValueError, 'AUTH_TRUSTED_PROXY_CIDRS'):
+                create_app()
 
     def test_success_refunds_slot_but_failure_does_not(self):
         with patch.object(self.users, 'authenticate', return_value=False):

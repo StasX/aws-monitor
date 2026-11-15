@@ -361,11 +361,27 @@ them. They verify concurrent clients sharing one budget, TTL-independent expiry,
 refunds that cannot change a newer window, and account changes visible to
 other clients. Never use production credentials.
 
-The source is `request.remote_addr`; client-supplied `X-Forwarded-For` is ignored.
-Clients behind the same NAT or reverse proxy may share a budget. Ensure source
-address handling is configured at your trusted proxy before relying on per-client
-isolation. Do not blindly trust forwarding headers; see
-[Flask's proxy guidance](https://flask.palletsprojects.com/en/stable/deploying/proxy_fix/).
+By default the source is the connection's `request.remote_addr` and forwarding
+headers are ignored. Behind an ingress, configure `dashboard.trustedProxyCidrs`
+with the actual ingress source IP networks as seen by the app, for example:
+
+```yaml
+dashboard:
+  trustedProxyCidrs:
+    - 10.20.0.0/24
+```
+
+Replace the example with your proxy networks. Outside Helm, set
+`AUTH_TRUSTED_PROXY_CIDRS` to comma-separated IPv4/IPv6 networks. Invalid networks
+fail application startup. The default empty list trusts no proxies.
+Only connections from these networks can supply `X-Forwarded-For`. The app walks
+the chain from right to left through trusted proxies and uses the first untrusted
+address as the throttle source. Missing or malformed chains use the connection
+address. Each trusted proxy must append the actual connecting address or overwrite
+the header with a verified client address. Trust only proxy source networks, never
+all addresses or networks containing untrusted clients. Ensure any upstream load
+balancer preserves client identity and configure the ingress's own forwarding
+trust accordingly. Clients sharing a NAT still share a budget.
 
 ### Create and manage dashboard users
 
@@ -417,6 +433,41 @@ The Service type follows `ingress.enabled`:
 | --- | --- | --- |
 | `ingress.enabled=true` | `ClusterIP` | Through your ingress controller with the configured TLS Secret |
 | `ingress.enabled=false` (chart default) | `LoadBalancer` | HTTP unless transport security is configured outside this chart |
+
+Choose either option in `chart/values.yaml` or a release values file. The defaults
+remain direct LoadBalancer access with no trusted proxies:
+
+```yaml
+ingress:
+  enabled: false
+dashboard:
+  trustedProxyCidrs: []
+```
+
+For direct LoadBalancer access, throttling uses the connection's source IP.
+A TCP load balancer does not supply `X-Forwarded-For`; adding trusted proxy
+networks cannot recover a client IP lost through address translation. If multiple
+clients reach the app with the same source IP, they share the login budget.
+
+For access through an ingress, configure its hostname, existing TLS Secret,
+and trusted source networks:
+
+```yaml
+ingress:
+  enabled: true
+  host: monitor.example.com
+  tlsSecretName: aws-monitor-tls
+dashboard:
+  trustedProxyCidrs:
+    - 10.20.0.0/24 # Example only: replace with your ingress source network.
+```
+
+The same options apply to Docker Desktop Kubernetes. Client-specific throttling
+through ingress requires the ingress to receive and forward the client IP;
+Docker Desktop or another upstream network layer may translate the source
+address before it reaches the ingress. Verify the actual source network and
+forwarded addresses in your environment before configuring trust. Direct
+`kubectl port-forward` access does not add an HTTP forwarding header.
 
 For an ingress deployment, explicitly enable ingress in the release values; using
 an ingress controller in the cluster alone does not change this chart's Service

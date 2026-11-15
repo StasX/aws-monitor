@@ -53,6 +53,8 @@ spec:
               containerPort: {{ .Values.pod.targetPort }}
 
           env:
+            - name: AUTH_TRUSTED_PROXY_CIDRS
+              value: {{ join "," .Values.dashboard.trustedProxyCidrs | quote }}
             - name: MONGODB_URI
               valueFrom:
                 secretKeyRef:

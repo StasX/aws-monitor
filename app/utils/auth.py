@@ -1,6 +1,7 @@
 from pymongo.errors import PyMongoError
 
 from flask import current_app, request
+from .client_address import client_address
 
 
 def require_dashboard_auth():
@@ -13,7 +14,7 @@ def require_dashboard_auth():
     throttle = current_app.extensions['auth_throttle']
     try:
         token, retry_after = throttle.reserve(
-            request.remote_addr or 'unknown', current_app.config['AUTH_MAX_FAILURES'],
+            client_address(), current_app.config['AUTH_MAX_FAILURES'],
             current_app.config['AUTH_WINDOW_SECONDS'],
         )
     except (PyMongoError, ValueError):

@@ -95,6 +95,10 @@
       ],
       "additionalProperties": false,
       "properties": {
+        "trustedProxyCidrs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
         "maxFailures": {
           "type": "integer",
           "minimum": 1,

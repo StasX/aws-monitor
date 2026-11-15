@@ -20,6 +20,8 @@ ingress:
   annotations: {}
 
 dashboard:
+  # Only the ingress/proxy source networks that append or overwrite X-Forwarded-For.
+  trustedProxyCidrs: []
   maxFailures: 5
   windowSeconds: 60
 

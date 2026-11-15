@@ -47,6 +47,7 @@ class HelmSchemaTests(unittest.TestCase):
             'replicas': ['0', '1.5'],
             'dashboard.maxFailures': ['0', '101', '1.5'],
             'dashboard.windowSeconds': ['0', '3601', '1.5'],
+            'dashboard.trustedProxyCidrs': ['invalid', '1'],
             'mongodb.existingSecret': [''],
             'mongodb.database': ['', 'invalid/name', 'a' * 64],
         }
@@ -62,3 +63,8 @@ class HelmSchemaTests(unittest.TestCase):
         result = self.render('app.cacheTTL=60')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('cacheTTL', result.stderr)
+
+    def test_trusted_proxy_networks_are_injected(self):
+        result = self.render('dashboard.trustedProxyCidrs[0]=10.20.0.0/24')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('name: AUTH_TRUSTED_PROXY_CIDRS\n              value: "10.20.0.0/24"', result.stdout)

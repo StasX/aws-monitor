@@ -2,6 +2,7 @@ from flask import Flask
 from .logic.resources_cache import ResourcesCache
 
 from .utils.app_config import AppConfig
+from .utils.client_address import parse_trusted_proxies
 from .utils.metrics import RequestMetrics
 from .utils.auth_throttle import AuthThrottle
 from .utils.mongodb import MongoDB
@@ -15,6 +16,9 @@ from .views.resources_view import resources_blueprint
 def create_app():
     application = Flask(__name__)
     application.config.from_object(AppConfig)
+    application.extensions['trusted_proxy_networks'] = parse_trusted_proxies(
+        application.config['AUTH_TRUSTED_PROXY_CIDRS']
+    )
     store = MongoDB(application.config['MONGODB_URI'], application.config['MONGODB_DATABASE'])
     application.extensions['mongodb'] = store
     application.extensions['auth_throttle'] = AuthThrottle(store=store)
