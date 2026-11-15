@@ -20,7 +20,12 @@ ingress:
   annotations: {}
 
 dashboard:
-  existingSecret: aws-monitor-dashboard
+  maxFailures: 5
+  windowSeconds: 60
+
+mongodb:
+  existingSecret: aws-monitor-mongodb
+  database: aws_monitor
 
 pod:
   image: sm1986/aws-monitor

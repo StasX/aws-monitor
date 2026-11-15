@@ -22,7 +22,7 @@ def samples(body):
 class MetricsTests(unittest.TestCase):
     def setUp(self):
         self.app = create_app()
-        self.app.config.update(TESTING=True, DASHBOARD_USERNAME='operator', DASHBOARD_PASSWORD_HASH='invalid')
+        self.app.config.update(TESTING=True)
         self.client = self.app.test_client()
 
     def test_scrapes_are_public_parseable_and_never_query_aws(self):

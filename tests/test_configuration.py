@@ -41,6 +41,19 @@ class ConfigurationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, name):
                     spec.loader.exec_module(module)
 
+    def test_authentication_settings_validate_ranges_and_types(self):
+        for name, values in {
+            'AUTH_MAX_FAILURES': ['0', '101', '1.5', 'invalid'],
+            'AUTH_WINDOW_SECONDS': ['0', '3601', '1.5', 'invalid'],
+        }.items():
+            for value in values:
+                with self.subTest(name=name, value=value), patch.dict(os.environ, {name: value}, clear=True):
+                    with self.assertRaisesRegex(ValueError, name):
+                        spec = importlib.util.spec_from_file_location(
+                            'app.utils.auth_config_test', ROOT / 'app/utils/app_config.py'
+                        )
+                        spec.loader.exec_module(importlib.util.module_from_spec(spec))
+
     def test_gunicorn_settings_are_validated_when_loaded(self):
         for name in ['APP_PORT', 'WEB_CONCURRENCY', 'GUNICORN_THREADS']:
             with self.subTest(name=name), patch.dict(os.environ, {name: '0'}, clear=True):

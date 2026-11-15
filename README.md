@@ -126,6 +126,9 @@ app/
   logic/resources_logic.py    # AWS response transformations
   logic/resources_cache.py    # Shared clients, concurrent refresh, result caching
   logic/resource_worker.py    # Reusable isolated processes and enforced deadlines
+  logic/users_logic.py        # Authentication and account lifecycle rules
+  models/user.py              # User fields, validation, document conversion
+  repositories/user_repository.py # MongoDB persistence for User models
   utils/dal.py                # Boto3 data access
   utils/app_config.py         # Environment configuration
   templates/layout.html      # Shared HTML layout
@@ -208,40 +211,155 @@ They mock the AWS session and do not require AWS credentials.
 
 ## Dashboard authentication
 
-The dashboard requires HTTP Basic authentication (a browser login prompt). Set
-`DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD_HASH` before starting the application.
-Missing configuration returns HTTP 503; missing or incorrect login returns HTTP
-401 before any AWS query. `/health`, `/metrics`, and static assets remain public.
-Dashboard responses use `Cache-Control: no-store`. There are no default credentials
-or authentication bypass settings. Restart workers after changing credentials.
+The dashboard uses HTTP Basic authentication (a browser login prompt) with
+accounts stored in MongoDB's `users` collection. Configure `MONGODB_URI` and
+`MONGODB_DATABASE`, then create an account using the commands below. Each user
+has a unique, case-sensitive username (`_id`), a salted scrypt `password_hash`,
+an `active` flag, and creation/update timestamps. Plaintext passwords are never
+stored. All enabled users can view the dashboard.
 
-Generate a password hash interactively; the password is not passed on the command line:
+Account code separates responsibilities: `models.User` represents an account and
+converts MongoDB documents; `UserRepository` reads and writes those models;
+`UsersLogic` applies password policy, verifies credentials, and manages account
+changes. The HTTP authentication middleware and user CLI call the logic layer.
+User documents retain their existing fields, so this structure requires no
+database migration.
+
+Missing or incorrect credentials, unknown users, and disabled accounts receive
+the same HTTP 401 response before any AWS query. MongoDB failures return HTTP 503.
+`/health`, `/metrics`, and static assets remain public. Dashboard responses use
+`Cache-Control: no-store`. There are no default accounts or public registration
+routes. Account changes are checked on each authenticated request, so password
+resets and account disabling take effect on the next request without restarting
+pods. A browser may prompt again after its saved password is changed.
+
+Failed logins are throttled by source address: five failed or concurrent password
+checks per 60-second window by default. Further attempts return HTTP 429 with
+`Retry-After` before password hashing or AWS access. Successful requests refund
+their slot, but do not erase earlier failures. An initial request without an
+Authorization header receives the browser challenge without consuming a slot.
+Malformed Authorization headers do count. Once blocked, even a correct password
+must wait for the window to expire. Health and metrics remain accessible.
+
+Set `dashboard.maxFailures` (1–100) and `dashboard.windowSeconds` (1–3600) in Helm,
+or `AUTH_MAX_FAILURES` and `AUTH_WINDOW_SECONDS` in the environment. Both settings
+are integers and are validated by Helm and the application.
+
+All workers and pods share the throttle through MongoDB Atlas. Set `MONGODB_URI`
+from a Kubernetes Secret and use the same `mongodb.database`, limits, and window
+across replicas. Database updates reserve a slot atomically, using MongoDB's
+clock so pod clock differences do not affect the window. Successful requests
+refund only their original window. A TTL index removes expired records; expiry
+is checked during reservation, independently of the background TTL cleanup.
+The `auth_attempts` collection stores a hash of the source address, the counter,
+and timestamps. The separate `users` collection stores account names and password
+hashes. AWS credentials and plaintext passwords are not stored in either collection.
+
+There is no SQLite or per-pod fallback. Missing configuration or database failure
+blocks credential-bearing dashboard requests with HTTP 503. Health and metrics
+stay available, and MongoDB connections are created lazily on the first login
+attempt. Connections and operations have bounded timeouts and each worker uses
+a pool capped at five connections per MongoDB server. Use separate databases for
+independent environments; sharing a database intentionally shares their budget.
+
+### MongoDB Atlas setup
+
+1. Create your cluster through [MongoDB Atlas](https://www.mongodb.com/docs/atlas/driver-connection/).
+2. Create a database user with `readWrite` on `aws_monitor` (or your configured
+   database), allowing access to `users` and creation of `auth_attempts` and its TTL index.
+   This Atlas database user is separate from dashboard accounts.
+3. Add your Kubernetes cluster's outbound public/NAT IP addresses to Atlas Network
+   Access. For local development, allow your local outbound public IP as well.
+4. In Atlas, select **Connect > Drivers > Python** and copy the `mongodb+srv://`
+   URI. Replace its username/password placeholders, URL-encoding special
+   characters in credentials. Keep TLS certificate verification enabled.
+5. Create the Kubernetes Secret before upgrading the release. This interactive
+   command keeps the URI out of shell history and writes no local secret file:
 
 ```sh
-python -c "from getpass import getpass; from werkzeug.security import generate_password_hash; print(generate_password_hash(getpass('Dashboard password: ')))"
+python -c "import json; from getpass import getpass; print(json.dumps({'apiVersion':'v1','kind':'Secret','metadata':{'name':'aws-monitor-mongodb','namespace':'dev'},'type':'Opaque','stringData':{'MONGODB_URI':getpass('MongoDB Atlas URI: ')}}))" | kubectl apply -f -
 ```
 
-For local PowerShell development, set the username and paste the generated hash
-inside single quotes (which preserve its dollar signs):
+The namespace must already exist. Configure `mongodb.existingSecret` if using
+another Secret name, and `mongodb.database` if using another database. The
+Secret must have a `MONGODB_URI` key. Do not put the URI in chart values, Git,
+command-line `--set` arguments, or logs. Restart the Deployment after changing it.
+The chart uses your hosted cluster; it does not deploy MongoDB in Kubernetes.
+
+The NetworkPolicy allows outbound TCP 27017 for Atlas, alongside DNS and HTTPS.
+Other cluster firewalls must also permit this connection; see
+[Atlas connection troubleshooting](https://www.mongodb.com/docs/atlas/troubleshoot-connection/).
+
+For local development, set `MONGODB_URI` before starting the app. In PowerShell,
+you can enter it without putting the value in command history:
 
 ```powershell
-$env:DASHBOARD_USERNAME = 'operator'
-$env:DASHBOARD_PASSWORD_HASH = 'PASTE_GENERATED_HASH_HERE'
-python -m app
+$env:MONGODB_URI = python -c "from getpass import getpass; print(getpass('MongoDB Atlas URI: '))"
+$env:MONGODB_DATABASE = 'aws_monitor'
 ```
 
-For Kubernetes, create the dashboard Secret in the release namespace before
-installing or upgrading. Use the generated hash, never the plaintext password:
+Unit tests mock MongoDB and require no cluster credentials. For real database
+validation, point `MONGODB_TEST_URI` at a **disposable test instance** and run:
 
 ```sh
-kubectl create namespace dev
-kubectl -n dev create secret generic aws-monitor-dashboard --from-literal=DASHBOARD_USERNAME=operator --from-literal='DASHBOARD_PASSWORD_HASH=PASTE_GENERATED_HASH_HERE'
+python -m unittest discover -s tests -p test_mongodb_integration.py -v
 ```
 
-`dashboard.existingSecret` selects this Secret. Its required keys are
-`DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD_HASH`. Existing deployments must create
-it before upgrading. Credential rotation requires a rollout restart.
-Password checking uses [Werkzeug password hashing](https://werkzeug.palletsprojects.com/en/stable/utils/#werkzeug.security.generate_password_hash).
+These opt-in tests create randomly named `aws_monitor_test_*` databases and drop
+only those databases afterward. The test user needs permission to create and drop
+them. They verify concurrent clients sharing one budget, TTL-independent expiry,
+refunds that cannot change a newer window, and account changes visible to
+other clients. Never use production credentials.
+
+The source is `request.remote_addr`; client-supplied `X-Forwarded-For` is ignored.
+Clients behind the same NAT or reverse proxy may share a budget. Ensure source
+address handling is configured at your trusted proxy before relying on per-client
+isolation. Do not blindly trust forwarding headers; see
+[Flask's proxy guidance](https://flask.palletsprojects.com/en/stable/deploying/proxy_fix/).
+
+### Create and manage dashboard users
+
+After configuring the MongoDB connection, create your first account from the
+project directory:
+
+```sh
+python -m flask --app app users create operator
+```
+
+The command prompts for a password twice without displaying it or accepting it
+as a command-line argument. Use 15?1024 characters. Usernames support 1?128
+printable characters, are case-sensitive, and cannot contain colons or
+surrounding whitespace. An existing username is rejected rather than overwritten.
+Password hashing uses [Werkzeug scrypt](https://werkzeug.palletsprojects.com/en/stable/utils/#werkzeug.security.generate_password_hash).
+
+You can also run the command inside an already deployed pod, using the MongoDB
+Secret configured for that release:
+
+```sh
+kubectl -n dev exec -it deployment/aws-monitor-deploy -- /app/env/bin/python -m flask --app app users create operator
+```
+
+Adjust the deployment name for your Helm release. Admin commands require access
+to the MongoDB connection credentials; they are not exposed over HTTP. To manage
+existing users:
+
+```sh
+python -m flask --app app users set-password operator
+python -m flask --app app users disable operator
+python -m flask --app app users enable operator
+```
+
+Password resets prompt for confirmation and preserve a disabled account's state.
+Resetting or enabling an account does not clear an active source-address throttle;
+wait for the retry window before logging in again. Use the dashboard browser
+prompt to log in with the username and password you created.
+
+Existing deployments must create their users in MongoDB before switching to this
+version. The old `DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD_HASH` environment
+settings and `dashboard.existingSecret` Helm value have been removed. Remove that
+old value from custom values files (including when using `--reuse-values`); the
+Deployment now requires only the MongoDB connection Secret for authentication.
+There is no automatic import or environment-credential fallback.
 
 Ingress is disabled by default. The Service uses `ClusterIP` when ingress is
 enabled and `LoadBalancer` when ingress is disabled. Direct LoadBalancer access

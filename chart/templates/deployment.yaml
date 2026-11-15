@@ -53,16 +53,17 @@ spec:
               containerPort: {{ .Values.pod.targetPort }}
 
           env:
-            - name: DASHBOARD_USERNAME
+            - name: MONGODB_URI
               valueFrom:
                 secretKeyRef:
-                  name: {{ required "dashboard.existingSecret is required" .Values.dashboard.existingSecret }}
-                  key: DASHBOARD_USERNAME
-            - name: DASHBOARD_PASSWORD_HASH
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.dashboard.existingSecret }}
-                  key: DASHBOARD_PASSWORD_HASH
+                  name: {{ required "mongodb.existingSecret is required" .Values.mongodb.existingSecret }}
+                  key: MONGODB_URI
+            - name: MONGODB_DATABASE
+              value: {{ .Values.mongodb.database | quote }}
+            - name: AUTH_MAX_FAILURES
+              value: {{ .Values.dashboard.maxFailures | quote }}
+            - name: AUTH_WINDOW_SECONDS
+              value: {{ .Values.dashboard.windowSeconds | quote }}
             - name: APP_HOST
               value: "0.0.0.0"
             - name: APP_PORT

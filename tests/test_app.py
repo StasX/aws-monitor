@@ -3,8 +3,6 @@ import unittest
 from unittest.mock import Mock, patch
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError, PartialCredentialsError
 
-from werkzeug.security import generate_password_hash
-
 from app import create_app
 from app.utils.app_config import AppConfig
 from app.logic.resources_logic import ResourcesLogic
@@ -29,8 +27,11 @@ class ApplicationTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         self.app = create_app()
+        self.app.extensions['auth_throttle'] = Mock()
+        self.app.extensions['auth_throttle'].reserve.return_value = (('source', 'window'), 0)
         self.app.config.update(TESTING=True, AWS_REGION='eu-west-1', AWS_CACHE_TTL=0)
-        self.app.config.update(DASHBOARD_USERNAME='tester', DASHBOARD_PASSWORD_HASH=generate_password_hash('test-password', method='pbkdf2:sha256:1000'))
+        self.app.extensions['users'] = Mock()
+        self.app.extensions['users'].authenticate.return_value = True
         self.client = self.app.test_client()
         self.client.environ_base['HTTP_AUTHORIZATION'] = 'Basic dGVzdGVyOnRlc3QtcGFzc3dvcmQ='
 

@@ -45,6 +45,10 @@ class HelmSchemaTests(unittest.TestCase):
             'pod.targetPort': ['0', '65536', '1.5'],
             'pod.port': ['0', '65536'],
             'replicas': ['0', '1.5'],
+            'dashboard.maxFailures': ['0', '101', '1.5'],
+            'dashboard.windowSeconds': ['0', '3601', '1.5'],
+            'mongodb.existingSecret': [''],
+            'mongodb.database': ['', 'invalid/name', 'a' * 64],
         }
         for name, values in cases.items():
             for value in values:

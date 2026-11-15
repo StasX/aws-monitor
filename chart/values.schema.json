@@ -5,7 +5,8 @@
   "required": [
     "app",
     "pod",
-    "replicas"
+    "replicas",
+    "mongodb"
   ],
   "properties": {
     "app": {
@@ -85,6 +86,46 @@
     "replicas": {
       "type": "integer",
       "minimum": 1
+    },
+    "dashboard": {
+      "type": "object",
+      "required": [
+        "maxFailures",
+        "windowSeconds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "maxFailures": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "windowSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
+    },
+    "mongodb": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "existingSecret",
+        "database"
+      ],
+      "properties": {
+        "existingSecret": {
+          "type": "string",
+          "minLength": 1
+        },
+        "database": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 63,
+          "pattern": "^[A-Za-z0-9_-]+$"
+        }
+      }
     }
   }
 }

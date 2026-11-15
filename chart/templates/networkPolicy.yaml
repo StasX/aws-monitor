@@ -38,4 +38,11 @@ spec:
           port: 80
         - protocol: TCP
           port: 443
+    # MongoDB Atlas driver connections use TCP 27017.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 27017
 {{- end }}
