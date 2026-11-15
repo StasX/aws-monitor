@@ -2,10 +2,12 @@
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ .Release.Name }}-{{ .Values.serviceMonitor.env }}-sm
+  name: {{ .Release.Name }}-{{ .Values.serviceMonitor.env | default .Release.Namespace }}-sm
   namespace: {{ .Values.serviceMonitor.namespace }}
   labels:
-    release: {{ .Values.serviceMonitor.release }}
+    {{- with .Values.serviceMonitor.release }}
+    release: {{ . | quote }}
+    {{- end }}
     {{- include "exam.labels" . | nindent 4 }}
 spec:
   selector:
@@ -14,7 +16,7 @@ spec:
 
   namespaceSelector:
     matchNames:
-    - {{ .Values.serviceMonitor.env }}
+    - {{ .Values.serviceMonitor.env | default .Release.Namespace | quote }}
 
   endpoints:
     - port: http

@@ -20,19 +20,15 @@ spec:
     spec:
       {{ if .Values.securityContext.enabled }}
       securityContext:
-        runAsNonRoot: {{.Values.runAsNonRoot}}
-        runAsUser: {{.Values.runAsUser}}
-        runAsGroup: {{.Values.runAsGroup}}
-        fsGroup: {{.Values.fsGroup}}
-      {end}
+        {{- omit .Values.securityContext "enabled" | toYaml | nindent 8 }}
+      {{ end }}
       containers:
       - name: {{ .Release.Name }}
-        image: {{ .Values.pod.image}}:{{ .Values.pod.tag }}
+        image: {{ printf "%s:%s" .Values.pod.image .Values.pod.tag | quote }}
         imagePullPolicy: Always
 
         readinessProbe:
-          httpGet:
-            path: /
+          tcpSocket:
             port: {{ .Values.pod.targetPort }}
           initialDelaySeconds: 10
           periodSeconds: 10
@@ -54,8 +50,9 @@ spec:
         - name: http 
           containerPort: {{ .Values.pod.targetPort }}
         
-        {{ if not .Values.externalSecret.enabled }}
         env:
+          - name: APP_HOST
+            value: "0.0.0.0"
           - name: AWS_ACCESS_KEY_ID
             valueFrom:
               secretKeyRef:
@@ -67,7 +64,6 @@ spec:
               secretKeyRef:
                 name: {{ .Values.awsSecretName }}
                 key: AWS_SECRET_ACCESS_KEY
-        {{ end }}
 
         resources:
           requests:

@@ -3,10 +3,21 @@ replicas: 2
 ingress:
   enabled: true
   path: /
+  pathType: Prefix
+  className: nginx
+  annotations: {}
 
 pod:
+  image: sm1986/aws-monitor
+  tag: latest
   targetPort: 5001
   port: 80
+
+securityContext:
+  enabled: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
 
 awsSecretName: aws-monitor-secret
 
@@ -29,6 +40,7 @@ resources:
 
 hpa:
   enabled: true
+  minReplicas: 2
   maxReplicas: 10
   avgCPUUtilization: 50
   avgMemoryUtilization: 50
@@ -37,21 +49,18 @@ networkPolicy:
   enabled: true
 
 pdb:
-  minAvaliableReplicas: 2
-
-monitoring:
-  
+  maxUnavailable: 1
 
 podMonitor:
   namespace: monitoring
-  enabled: true
-  path: /
+  enabled: false
+  path: /metrics
   interval: 15s
   scrapeTimeout: 10s
 
 serviceMonitor:
   namespace: monitoring
-  enabled: true
-  path: /
+  enabled: false
+  path: /metrics
   interval: 15s
   scrapeTimeout: 10s

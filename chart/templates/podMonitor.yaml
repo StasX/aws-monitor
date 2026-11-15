@@ -2,10 +2,12 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: {{ .Release.Name }}-{{ .Values.podMonitor.env }}-pm
+  name: {{ .Release.Name }}-{{ .Values.podMonitor.env | default .Release.Namespace }}-pm
   namespace: {{ .Values.podMonitor.namespace }}
   labels:
-    release: {{ .Values.podMonitor.release }}
+    {{- with .Values.podMonitor.release }}
+    release: {{ . | quote }}
+    {{- end }}
     {{- include "exam.labels" . | nindent 4 }}
 spec:
   selector:
@@ -14,7 +16,7 @@ spec:
 
   namespaceSelector:
     matchNames:
-    - {{ .Values.podMonitor.env }}
+    - {{ .Values.podMonitor.env | default .Release.Namespace | quote }}
 
   podMetricsEndpoints:
     - port: http
