@@ -9,6 +9,11 @@ from app.utils.env import env_number
 
 
 ROOT = Path(__file__).resolve().parents[1]
+GUNICORN_ENV = {
+    'APP_HOST': '127.0.0.1',
+    'PROMETHEUS_MULTIPROC_DIR': str(ROOT / 'temp/test-metrics'),
+    'GUNICORN_WORKER_TMP_DIR': str(ROOT / 'temp'),
+}
 
 
 class ConfigurationTests(unittest.TestCase):
@@ -56,10 +61,10 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_gunicorn_settings_are_validated_when_loaded(self):
         for name in ['APP_PORT', 'WEB_CONCURRENCY', 'GUNICORN_THREADS']:
-            with self.subTest(name=name), patch.dict(os.environ, {name: '0', 'APP_HOST': '127.0.0.1'}, clear=True):
+            with self.subTest(name=name), patch.dict(os.environ, {**GUNICORN_ENV, name: '0'}, clear=True):
                 with self.assertRaisesRegex(ValueError, name):
                     runpy.run_path(str(ROOT / 'gunicorn.conf.py'))
-        with patch.dict(os.environ, {'APP_HOST': '0.0.0.0'}, clear=True):
+        with patch.dict(os.environ, {**GUNICORN_ENV, 'APP_HOST': '0.0.0.0'}, clear=True):
             settings = runpy.run_path(str(ROOT / 'gunicorn.conf.py'))
             self.assertEqual(settings['workers'], 2)
             self.assertEqual(settings['threads'], 4)
@@ -67,10 +72,10 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_gunicorn_port_uses_environment_and_validates_range(self):
         for port in ['1', '8080', '65535']:
-            with self.subTest(port=port), patch.dict(os.environ, {'APP_PORT': port, 'APP_HOST': '127.0.0.1'}, clear=True):
+            with self.subTest(port=port), patch.dict(os.environ, {**GUNICORN_ENV, 'APP_PORT': port}, clear=True):
                 settings = runpy.run_path(str(ROOT / 'gunicorn.conf.py'))
                 self.assertEqual(settings['bind'], f'127.0.0.1:{port}')
         for port in ['0', '-1', '65536', '8080.5', '', 'invalid']:
-            with self.subTest(port=port), patch.dict(os.environ, {'APP_PORT': port}, clear=True):
+            with self.subTest(port=port), patch.dict(os.environ, {**GUNICORN_ENV, 'APP_PORT': port}, clear=True):
                 with self.assertRaisesRegex(ValueError, 'APP_PORT'):
                     runpy.run_path(str(ROOT / 'gunicorn.conf.py'))

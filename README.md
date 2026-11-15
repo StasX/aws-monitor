@@ -335,8 +335,19 @@ health check also uses `APP_PORT`; publish the matching container port when
 overriding it. The local development server still defaults to port 5001.
 Access and error logs go to container output; worker heartbeat files use
 `/dev/shm` to support the Helm deployment's read-only root filesystem.
-On Linux, set `APP_HOST` before running Gunicorn, for example:
-`APP_HOST=127.0.0.1 gunicorn --config gunicorn.conf.py 'app.app:create_app()'`.
+The Dockerfile also supplies `PROMETHEUS_MULTIPROC_DIR=/dev/shm/aws-monitor-prometheus`
+and `GUNICORN_WORKER_TMP_DIR=/dev/shm`. Gunicorn reads both paths directly from
+the environment, so Kubernetes inherits them from the image and GitHub Actions
+needs no additional secrets or variables.
+On Linux outside Docker, set all three required variables before running Gunicorn:
+
+```sh
+APP_HOST=127.0.0.1 \
+PROMETHEUS_MULTIPROC_DIR=/dev/shm/aws-monitor-prometheus \
+GUNICORN_WORKER_TMP_DIR=/dev/shm \
+gunicorn --config gunicorn.conf.py 'app.app:create_app()'
+```
+
 Docker supplies `APP_HOST` automatically from the image; Helm also explicitly sets
 `APP_HOST=0.0.0.0` in the Deployment. Set it manually only when launching Gunicorn
 outside the container, or override the image default with `docker run -e APP_HOST=...`.
@@ -650,9 +661,9 @@ Metrics describe HTTP traffic; AWS inventory is not fetched during scraping.
 
 Gunicorn aggregates all workers using the Prometheus client's
 [multiprocess mode](https://prometheus.github.io/client_python/multiprocess/).
-Its configuration sets `PROMETHEUS_MULTIPROC_DIR` before loading the application,
-creates the dedicated directory, and clears metric files on master startup.
-Docker sets it to `/dev/shm/aws-monitor-prometheus`, which is writable with the
+The runtime must set `PROMETHEUS_MULTIPROC_DIR` before loading the application.
+Gunicorn creates the dedicated directory and clears metric files on master startup.
+The Dockerfile sets it to `/dev/shm/aws-monitor-prometheus`, which is writable with the
 chart's read-only root filesystem. Worker restarts preserve counters; restarting
 the Gunicorn master resets them. Do not share this directory between instances
 or enable Gunicorn application preloading. For local `python -m app`, leave the

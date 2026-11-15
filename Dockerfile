@@ -9,7 +9,8 @@ RUN /app/env/bin/pip install --no-cache-dir -r requirements.txt
 FROM python:3.14.4-alpine3.23
 ENV APP_HOST="0.0.0.0" \
     APP_PORT="5001" \
-    PROMETHEUS_MULTIPROC_DIR="/dev/shm/aws-monitor-prometheus"
+    PROMETHEUS_MULTIPROC_DIR="/dev/shm/aws-monitor-prometheus" \
+    GUNICORN_WORKER_TMP_DIR="/dev/shm"
 WORKDIR /app
 RUN apk update && \
     apk upgrade --no-cache && \

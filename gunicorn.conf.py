@@ -1,8 +1,7 @@
 from os import environ
 from pathlib import Path
 
-# Set before importing app (and prometheus_client).
-environ.setdefault('PROMETHEUS_MULTIPROC_DIR', '/dev/shm/aws-monitor-prometheus')
+# Supplied by the runtime environment before importing prometheus_client.
 metrics_directory = Path(environ['PROMETHEUS_MULTIPROC_DIR'])
 
 from app.utils.env import env_number
@@ -18,7 +17,7 @@ accesslog = '-'
 errorlog = '-'
 capture_output = True
 # The container root filesystem is read-only in Kubernetes.
-worker_tmp_dir = '/dev/shm'
+worker_tmp_dir = environ['GUNICORN_WORKER_TMP_DIR']
 
 
 def on_starting(server):
