@@ -67,6 +67,22 @@ spec:
               value: "0.0.0.0"
             - name: APP_PORT
               value: {{ .Values.pod.targetPort | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.app.awsRegion | quote }}
+            - name: AWS_CACHE_TTL
+              value: {{ .Values.app.cacheTtl | quote }}
+            - name: AWS_REFRESH_TIMEOUT
+              value: {{ .Values.app.refreshTimeout | quote }}
+            - name: AWS_FAILURE_COOLDOWN
+              value: {{ .Values.app.failureCooldown | quote }}
+            - name: AWS_TASK_TIMEOUT
+              value: {{ .Values.app.taskTimeout | quote }}
+            - name: AWS_MAX_DATA_AGE
+              value: {{ .Values.app.maxDataAge | quote }}
+            - name: WEB_CONCURRENCY
+              value: {{ .Values.app.workers | quote }}
+            - name: GUNICORN_THREADS
+              value: {{ .Values.app.threads | quote }}
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

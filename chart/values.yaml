@@ -1,5 +1,15 @@
 replicas: 2
 
+app:
+  awsRegion: us-east-1
+  cacheTtl: 30
+  refreshTimeout: 3
+  failureCooldown: 10
+  taskTimeout: 15
+  maxDataAge: 900
+  workers: 2
+  threads: 4
+
 ingress:
   enabled: false
   host: ""

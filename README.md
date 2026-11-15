@@ -264,6 +264,27 @@ references an existing certificate Secret; it does not issue certificates.
 
 ## Helm deployment configuration
 
+Configure runtime settings under `app` in `chart/values.yaml`. These map directly
+to the application's existing environment variables:
+
+| Helm value | Environment variable | Default |
+| --- | --- | --- |
+| `app.awsRegion` | `AWS_REGION` | `us-east-1` |
+| `app.cacheTtl` | `AWS_CACHE_TTL` | `30` |
+| `app.refreshTimeout` | `AWS_REFRESH_TIMEOUT` | `3` |
+| `app.failureCooldown` | `AWS_FAILURE_COOLDOWN` | `10` |
+| `app.taskTimeout` | `AWS_TASK_TIMEOUT` | `15` |
+| `app.maxDataAge` | `AWS_MAX_DATA_AGE` | `900` |
+| `app.workers` | `WEB_CONCURRENCY` | `2` |
+| `app.threads` | `GUNICORN_THREADS` | `4` |
+
+Time settings use seconds and follow the startup validation ranges documented
+above. Override values per environment with a values file or, for example,
+`--set app.awsRegion=eu-west-1 --set app.workers=3`. The resource region is
+independent of `externalSecret.region`, which selects the Secrets Manager region.
+Increasing workers also increases the number of AWS child processes and memory
+usage per pod.
+
 Install with an explicit image tag published by your pipeline:
 
 ```sh
