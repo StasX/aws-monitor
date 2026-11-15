@@ -1,10 +1,27 @@
 # AWS Monitor
 
-This project demonstrates the containerization, CI/CD automation, security scanning, and Kubernetes deployment of an existing Flask application that monitors AWS resources.
+AWS Monitor is a Flask dashboard for EC2 instances, VPCs, Application/Network
+Load Balancers (ELBv2), and AMIs owned by the configured AWS account. It queries
+one AWS region, displays cached inventory with freshness indicators, and protects
+dashboard access with MongoDB-backed HTTP Basic authentication.
+
+The repository includes Docker packaging, a Kubernetes Helm chart, and a Jenkins
+pipeline for testing, security scanning, image publishing, and GitOps manifest updates.
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `app/` | Flask application, dashboard assets, AWS fetching, and account management |
+| `tests/` | Unit tests, Helm validation, and opt-in MongoDB integration tests |
+| `Dockerfile`, `gunicorn.conf.py` | Container image and production server configuration |
+| `chart/` | Kubernetes resources and configurable Helm values |
+| `Jenkinsfile` | CI/CD stages using the external `aws-monitor-lib` shared library |
+| `.app-info.json` | Application metadata and separate Dev, QA, and Production versions |
 
 ## What Has Been Implemented
 
-The following DevOps components have been fully implemented:
+The repository provides the following DevOps components:
 
 ### Docker
 
@@ -34,7 +51,7 @@ The chart includes:
 
 ### Jenkins Pipeline
 
-A complete CI/CD pipeline has been implemented using Jenkins.
+The Jenkins pipeline runs on a Kubernetes agent with separate tool containers.
 
 Pipeline stages include:
 
@@ -45,14 +62,20 @@ Pipeline stages include:
 - Security scanning.
 - Docker image build.
 - Docker image publishing.
-- Helm chart deployment.
+- Helm manifest generation and validation.
 - GitOps repository update.
-- Kubernetes deployment.
+- Application patch-version update in this repository.
+
+Manifest generation, publishing, and version updates delegate to the external
+shared library. The checked-in Jenkinsfile has no direct `helm upgrade` or
+`kubectl apply` step; cluster reconciliation depends on your GitOps setup.
 
 The `Application Tests` stage runs the full unittest suite in a dedicated container
 matching the Dockerfile's Python/Alpine runtime. It installs `requirements.txt`
 in an isolated virtual environment and has a ten-minute timeout covering setup
-and execution. Tests mock AWS and require no AWS credentials.
+and execution. Tests mock AWS and require no AWS credentials. Helm tests skip
+when Helm is unavailable (including in the dedicated Python test container);
+live MongoDB tests skip unless `MONGODB_TEST_URI` is configured.
 
 ### Jenkins Docker daemon isolation
 
@@ -95,7 +118,7 @@ The Jenkins pipeline uses a reusable Shared Library to centralize common pipelin
 - Project metadata loading.
 - Docker image version management.
 - Security scan execution.
-- Helm deployment automation.
+- Helm manifest generation.
 - GitOps repository updates.
 - Shared pipeline utilities.
 
@@ -111,11 +134,11 @@ The pipeline automatically performs security and quality analysis using:
 - **Bandit** – Python security analysis.
 - **Checkov** – Infrastructure as Code (IaC) security scanning.
 - **Trivy** – Container image vulnerability scanning.
+- **kube-score** – Generated Kubernetes manifest checks.
 
 ## Application structure and local development
 
-The Flask application follows the layered structure of the
-[vacations-agency Flask app](https://github.com/StasX/vacations-agency/tree/main/Flask):
+The Flask application uses a layered structure:
 
 ```text
 app/
@@ -141,6 +164,33 @@ Run locally with `python -m pip install -r requirements.txt`
 followed by `python -m app` (port 5001), or use `python -m flask --app app run --port=5001`.
 AWS credentials use the standard Boto3 credential chain; `AWS_REGION` defaults to
 `us-east-1`.
+
+Use Python 3.14 to match the container runtime. For an isolated local environment:
+
+```sh
+python -m venv .venv
+# Linux/macOS:
+.venv/bin/python -m pip install -r requirements.txt
+# Windows PowerShell:
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Activate the virtual environment or use its Python executable for subsequent
+commands. Configure MongoDB and create a dashboard user as described below, then
+start `python -m app` and open `http://127.0.0.1:5001`.
+
+The AWS identity needs these inventory permissions:
+
+| Resource | IAM action |
+| --- | --- |
+| EC2 instances | `ec2:DescribeInstances` |
+| VPCs | `ec2:DescribeVpcs` |
+| Load balancers | `elasticloadbalancing:DescribeLoadBalancers` |
+| Owned AMIs | `ec2:DescribeImages` |
+
+The dashboard does not modify AWS resources. Search filters the inventory already
+loaded in the browser. Reload the page to request fresh data; the age indicators
+and removal of expired data update automatically without fetching new inventory.
 
 Successful resource sections are cached for 30 seconds per application worker.
 Set `AWS_CACHE_TTL` to change this duration, or to `0` to disable result caching.
@@ -327,7 +377,7 @@ python -m flask --app app users create operator
 ```
 
 The command prompts for a password twice without displaying it or accepting it
-as a command-line argument. Use 15?1024 characters. Usernames support 1?128
+as a command-line argument. Use 15–1024 characters. Usernames support 1–128
 printable characters, are case-sensitive, and cannot contain colons or
 surrounding whitespace. An existing username is rejected rather than overwritten.
 Password hashing uses [Werkzeug scrypt](https://werkzeug.palletsprojects.com/en/stable/utils/#werkzeug.security.generate_password_hash).
@@ -361,9 +411,16 @@ old value from custom values files (including when using `--reuse-values`); the
 Deployment now requires only the MongoDB connection Secret for authentication.
 There is no automatic import or environment-credential fallback.
 
-Ingress is disabled by default. The Service uses `ClusterIP` when ingress is
-enabled and `LoadBalancer` when ingress is disabled. Direct LoadBalancer access
-requires transport security configured outside this chart. To expose the dashboard, point your hostname at
+The Service type follows `ingress.enabled`:
+
+| Configuration | Service type | Remote access |
+| --- | --- | --- |
+| `ingress.enabled=true` | `ClusterIP` | Through your ingress controller with the configured TLS Secret |
+| `ingress.enabled=false` (chart default) | `LoadBalancer` | HTTP unless transport security is configured outside this chart |
+
+For an ingress deployment, explicitly enable ingress in the release values; using
+an ingress controller in the cluster alone does not change this chart's Service
+type. To expose the dashboard through ingress, point your hostname at
 the ingress controller, create a TLS Secret containing a certificate for that
 hostname, and set all three ingress values:
 
@@ -410,10 +467,12 @@ independent of `externalSecret.region`, which selects the Secrets Manager region
 Increasing workers also increases the number of AWS child processes and memory
 usage per pod.
 
-Install with an explicit image tag published by your pipeline:
+For your ingress deployment, install with an explicit image tag, hostname, and
+existing TLS Secret. Create the namespace, AWS and MongoDB Secrets, and TLS Secret
+before running this command:
 
 ```sh
-helm upgrade --install aws-monitor ./chart --namespace dev --create-namespace --set pod.image=sm1986/aws-monitor --set pod.tag=YOUR_IMAGE_TAG
+helm upgrade --install aws-monitor ./chart --namespace dev --set pod.image=sm1986/aws-monitor --set pod.tag=YOUR_IMAGE_TAG --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
 ```
 
 The default image is `sm1986/aws-monitor:latest`; override it for your registry and release.
@@ -437,6 +496,8 @@ budget uses `pdb.maxUnavailable` (default one).
 Ingress is disabled by default and uses the nginx class with a Prefix path and no rewrite when enabled. Configure
 `ingress.annotations` and `ingress.pathType` for deployments requiring regex rewrites.
 Readiness and liveness use HTTP GET checks against `/health` on the named `http` port, without authentication or AWS access.
+`/health` returns `{"status":"ok"}` without contacting MongoDB or AWS, so a
+successful probe does not confirm dashboard dependencies are available.
 Pod security settings belong under `securityContext`, including optional UID/GID overrides.
 
 `/metrics` exports Prometheus application metrics without credentials or AWS calls:
@@ -469,16 +530,20 @@ corresponding `release` value when required by your Prometheus selector.
 
 ## Technologies Used
 
+- Python, Flask, and Gunicorn
+- Boto3
+- MongoDB and PyMongo
+- Prometheus client
 - Docker
 - Kubernetes
 - Helm
 - Jenkins
 - Jenkins Shared Library
-- GitHub Actions
 - Trivy
 - Checkov
 - Semgrep
 - Bandit
+- kube-score
 
 ## Project Goals
 
