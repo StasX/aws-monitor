@@ -2,6 +2,7 @@ from flask import Flask
 from .logic.resources_cache import ResourcesCache
 
 from .utils.app_config import AppConfig
+from .utils.metrics import RequestMetrics
 from .views.monitoring_view import monitoring_blueprint
 from .views.resources_view import resources_blueprint
 
@@ -9,6 +10,7 @@ from .views.resources_view import resources_blueprint
 def create_app():
     application = Flask(__name__)
     application.config.from_object(AppConfig)
+    application.extensions['request_metrics'] = RequestMetrics(application)
     application.extensions['resources_cache'] = ResourcesCache(logger=application.logger)
     application.register_blueprint(resources_blueprint)
     application.register_blueprint(monitoring_blueprint)

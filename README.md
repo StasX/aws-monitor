@@ -321,9 +321,31 @@ Ingress is disabled by default and uses the nginx class with a Prefix path and n
 Readiness and liveness use HTTP GET checks against `/health` on the named `http` port, without authentication or AWS access.
 Pod security settings belong under `securityContext`, including optional UID/GID overrides.
 
-PodMonitor and ServiceMonitor are disabled by default: the current application
-does not export Prometheus metrics. Enable one after implementing metrics and
-installing the Prometheus Operator CRDs. Monitor selectors default to the release
+`/metrics` exports Prometheus application metrics without credentials or AWS calls:
+
+- `aws_monitor_http_requests_total` counts completed requests by HTTP method,
+  route template, and status code, including rejected dashboard logins.
+- `aws_monitor_http_request_duration_seconds` is a latency histogram by method
+  and route template, with buckets, count, and sum.
+
+Scrapes exclude themselves. Unmatched URLs share one label, and raw URLs, query
+strings, credentials, and AWS resource identifiers are not used as labels.
+Metrics describe HTTP traffic; AWS inventory is not fetched during scraping.
+
+Gunicorn aggregates all workers using the Prometheus client's
+[multiprocess mode](https://prometheus.github.io/client_python/multiprocess/).
+Its configuration sets `PROMETHEUS_MULTIPROC_DIR` before loading the application,
+creates the dedicated directory, and clears metric files on master startup.
+Docker sets it to `/dev/shm/aws-monitor-prometheus`, which is writable with the
+chart's read-only root filesystem. Worker restarts preserve counters; restarting
+the Gunicorn master resets them. Do not share this directory between instances
+or enable Gunicorn application preloading. For local `python -m app`, leave the
+variable unset to use an in-memory registry. Metrics aggregate per pod, not
+across Kubernetes replicas; Prometheus can sum across pod time series.
+
+PodMonitor and ServiceMonitor are disabled by default. Install the Prometheus
+Operator CRDs and enable one with `--set podMonitor.enabled=true` or
+`--set serviceMonitor.enabled=true`. Monitor selectors default to the release
 namespace; set `podMonitor.env` or `serviceMonitor.env` to override it, and set the
 corresponding `release` value when required by your Prometheus selector.
 
