@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   name: {{ .Release.Name }}-{{ .Values.podMonitor.env | default .Release.Namespace }}-pm
-  namespace: {{ .Values.podMonitor.namespace }}
+  namespace: {{ .Values.podMonitor.namespace | quote }}
   labels:
     {{- with .Values.podMonitor.release }}
     release: {{ . | quote }}
@@ -16,11 +16,11 @@ spec:
 
   namespaceSelector:
     matchNames:
-    - {{ .Values.podMonitor.env | default .Release.Namespace | quote }}
+      - {{ .Values.podMonitor.env | default .Release.Namespace | quote }}
 
   podMetricsEndpoints:
     - port: http
-      path: {{ .Values.podMonitor.path }}
-      interval: {{ .Values.podMonitor.interval }}
-      scrapeTimeout: {{ .Values.podMonitor.scrapeTimeout }}
+      path: {{ .Values.podMonitor.path | quote }}
+      interval: {{ .Values.podMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.podMonitor.scrapeTimeout | quote }}
 {{- end }}

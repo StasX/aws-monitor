@@ -1,4 +1,4 @@
-{{ if .Values.hpa.enabled }}
+{{- if .Values.hpa.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -24,4 +24,4 @@ spec:
           type: Utilization
           averageUtilization: {{ .Values.hpa.avgMemoryUtilization }}
 
-{{ end }}
+{{- end }}

@@ -3,85 +3,85 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}-deploy
   labels:
-    {{- include "exam.labels" . | nindent 4}}
-spec:  
-  selector: 
+    {{- include "exam.labels" . | nindent 4 }}
+spec:
+  selector:
     matchLabels:
       app: {{ .Release.Name }}
-      {{- include "exam.labels" . | nindent 6}}
-  {{ if not .Values.hpa.enabled }}
+      {{- include "exam.labels" . | nindent 6 }}
+  {{- if not .Values.hpa.enabled }}
   replicas: {{ .Values.replicas }}
-  {{ end }}
+  {{- end }}
   template:
     metadata:
       labels:
         app: {{ .Release.Name }}
-        {{- include "exam.labels" . | nindent 8}}
+        {{- include "exam.labels" . | nindent 8 }}
     spec:
-      {{ if .Values.securityContext.enabled }}
+      {{- if .Values.securityContext.enabled }}
       securityContext:
         {{- omit .Values.securityContext "enabled" | toYaml | nindent 8 }}
-      {{ end }}
+      {{- end }}
       containers:
-      - name: {{ .Release.Name }}
-        image: {{ printf "%s:%s" .Values.pod.image .Values.pod.tag | quote }}
-        imagePullPolicy: Always
+        - name: {{ .Release.Name }}
+          image: {{ printf "%s:%s" .Values.pod.image .Values.pod.tag | quote }}
+          imagePullPolicy: Always
 
-        readinessProbe:
-          tcpSocket:
-            port: {{ .Values.pod.targetPort }}
-          initialDelaySeconds: 10
-          periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.pod.targetPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
 
-        livenessProbe:
-          tcpSocket: # validate if pod alive via tcp connection
-            port: {{ .Values.pod.targetPort }}
-          initialDelaySeconds: 30
-          periodSeconds: 20
+          livenessProbe:
+            tcpSocket: # validate if pod alive via tcp connection
+              port: {{ .Values.pod.targetPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 20
 
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          privileged: false
-          capabilities:
-            drop:
-              - ALL
-        ports:
-        - name: http 
-          containerPort: {{ .Values.pod.targetPort }}
-        
-        env:
-          - name: DASHBOARD_USERNAME
-            valueFrom:
-              secretKeyRef:
-                name: {{ required "dashboard.existingSecret is required" .Values.dashboard.existingSecret }}
-                key: DASHBOARD_USERNAME
-          - name: DASHBOARD_PASSWORD_HASH
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.dashboard.existingSecret }}
-                key: DASHBOARD_PASSWORD_HASH
-          - name: APP_HOST
-            value: "0.0.0.0"
-          - name: AWS_ACCESS_KEY_ID
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.awsSecretName }}
-                key: AWS_ACCESS_KEY_ID
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            privileged: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: {{ .Values.pod.targetPort }}
 
-          - name: AWS_SECRET_ACCESS_KEY
-            valueFrom:
-              secretKeyRef:
-                name: {{ .Values.awsSecretName }}
-                key: AWS_SECRET_ACCESS_KEY
+          env:
+            - name: DASHBOARD_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ required "dashboard.existingSecret is required" .Values.dashboard.existingSecret }}
+                  key: DASHBOARD_USERNAME
+            - name: DASHBOARD_PASSWORD_HASH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.dashboard.existingSecret }}
+                  key: DASHBOARD_PASSWORD_HASH
+            - name: APP_HOST
+              value: "0.0.0.0"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsSecretName }}
+                  key: AWS_ACCESS_KEY_ID
 
-        resources:
-          requests:
-            cpu: {{ .Values.resources.requests.cpu | quote }}
-            memory: {{ .Values.resources.requests.memory | quote }}
-            ephemeral-storage: {{ .Values.resources.requests.ephemeralStorage | quote }}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.awsSecretName }}
+                  key: AWS_SECRET_ACCESS_KEY
 
-          limits:
-            cpu: {{ .Values.resources.limits.cpu | quote }}
-            memory: {{ .Values.resources.limits.memory | quote }}
-            ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}
+          resources:
+            requests:
+              cpu: {{ .Values.resources.requests.cpu | quote }}
+              memory: {{ .Values.resources.requests.memory | quote }}
+              ephemeral-storage: {{ .Values.resources.requests.ephemeralStorage | quote }}
+
+            limits:
+              cpu: {{ .Values.resources.limits.cpu | quote }}
+              memory: {{ .Values.resources.limits.memory | quote }}
+              ephemeral-storage: {{ .Values.resources.limits.ephemeralStorage | quote }}

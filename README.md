@@ -238,7 +238,9 @@ kubectl -n dev create secret generic aws-monitor-dashboard --from-literal=DASHBO
 it before upgrading. Credential rotation requires a rollout restart.
 Password checking uses [Werkzeug password hashing](https://werkzeug.palletsprojects.com/en/stable/utils/#werkzeug.security.generate_password_hash).
 
-Ingress is disabled by default. To expose the dashboard, point your hostname at
+Ingress is disabled by default. The Service uses `ClusterIP` when ingress is
+enabled and `LoadBalancer` when ingress is disabled. Direct LoadBalancer access
+requires transport security configured outside this chart. To expose the dashboard, point your hostname at
 the ingress controller, create a TLS Secret containing a certificate for that
 hostname, and set all three ingress values:
 

@@ -3,7 +3,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ .Release.Name }}-{{ .Values.serviceMonitor.env | default .Release.Namespace }}-sm
-  namespace: {{ .Values.serviceMonitor.namespace }}
+  namespace: {{ .Values.serviceMonitor.namespace | quote }}
   labels:
     {{- with .Values.serviceMonitor.release }}
     release: {{ . | quote }}
@@ -16,11 +16,11 @@ spec:
 
   namespaceSelector:
     matchNames:
-    - {{ .Values.serviceMonitor.env | default .Release.Namespace | quote }}
+      - {{ .Values.serviceMonitor.env | default .Release.Namespace | quote }}
 
   endpoints:
     - port: http
-      path: {{ .Values.serviceMonitor.path }}
-      interval: {{ .Values.serviceMonitor.interval }}
-      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout }}
+      path: {{ .Values.serviceMonitor.path | quote }}
+      interval: {{ .Values.serviceMonitor.interval | quote }}
+      scrapeTimeout: {{ .Values.serviceMonitor.scrapeTimeout | quote }}
 {{- end }}
