@@ -278,8 +278,15 @@ to the application's existing environment variables:
 | `app.workers` | `WEB_CONCURRENCY` | `2` |
 | `app.threads` | `GUNICORN_THREADS` | `4` |
 
-Time settings use seconds and follow the startup validation ranges documented
-above. Override values per environment with a values file or, for example,
+Time settings use seconds and follow the validation ranges documented above.
+`chart/values.schema.json` checks runtime setting types and ranges, port ranges,
+and positive replica counts during Helm lint, template, install, and upgrade.
+Use YAML numbers for numeric settings; numeric strings are rejected. Unknown
+keys under `app` are rejected to catch typos. Application startup validation
+remains in place for deployments outside Helm.
+For fractional command-line values, use `--set-json app.taskTimeout=0.5`;
+Helm's `--set` treats decimals as strings.
+Override values per environment with a values file or, for example,
 `--set app.awsRegion=eu-west-1 --set app.workers=3`. The resource region is
 independent of `externalSecret.region`, which selects the Secrets Manager region.
 Increasing workers also increases the number of AWS child processes and memory
