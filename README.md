@@ -276,6 +276,13 @@ with `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` keys. Alternatively, enable
 `externalSecret.enabled` to create a SecretStore and ExternalSecret. This requires
 the External Secrets Operator and AWS permissions configured for its controller.
 The Secrets Manager value must contain those same two keys as JSON properties.
+For temporary credentials, also add `AWS_SESSION_TOKEN` to the Kubernetes Secret;
+the Deployment injects it when present and allows it to be absent for long-lived
+credentials. When using External Secrets, set
+`externalSecret.includeSessionToken=true` and include the `AWS_SESSION_TOKEN`
+JSON property in Secrets Manager. Rotate all three values together and restart
+the Deployment after updating the Secret, since environment variables do not
+refresh in running pods.
 
 Autoscaling requires the Kubernetes metrics server. `hpa.minReplicas` defaults to
 two; when HPA is disabled, `replicas` controls the deployment size. The disruption
@@ -283,7 +290,7 @@ budget uses `pdb.maxUnavailable` (default one).
 
 Ingress is disabled by default and uses the nginx class with a Prefix path and no rewrite when enabled. Configure
 `ingress.annotations` and `ingress.pathType` for deployments requiring regex rewrites.
-Readiness and liveness currently use TCP checks; `/health` is also available without authentication.
+Readiness and liveness use HTTP GET checks against `/health` on the named `http` port, without authentication or AWS access.
 Pod security settings belong under `securityContext`, including optional UID/GID overrides.
 
 PodMonitor and ServiceMonitor are disabled by default: the current application
