@@ -9,60 +9,89 @@ def envName = ""
 def envShortName = ""
 def version = ""
 def image = ""
+def appInfo = [:]
 
-        def appInfo = [:]
-podTemplate(cloud: 'kubernetes', containers: [
-    containerTemplate(
-        name: 'jnlp', 
-        image: 'jenkins/inbound-agent:latest'
-    ),
-    containerTemplate(
-        name: 'docker', 
-        image: 'docker:26-dind',
-        privileged: true,
-        args: '--storage-driver=vfs --host=tcp://0.0.0.0:2375'
-    ),
-    containerTemplate(
-        name: 'alpine', 
-        image: 'alpine:latest',
-        command: 'sleep 1d'
-    ),
-    containerTemplate(
-        name: 'bandit', 
-        image: 'python:3.13', // Use the latest stable Python image
-        command: 'sleep 1d'
-    ),
-    containerTemplate(
-        name: 'checkov', 
-        image: 'python:3.13', // Use the latest stable Python image
-        command: 'sleep 1d'
-    ),
-    containerTemplate(
-        name: 'semgrep', 
-        image: 'python:3.13', // Use the latest stable Python image
-        command: 'sleep 1d'
-    ),
-    containerTemplate(
-        name: 'helm', 
-        image: 'alpine/helm', // Use the latest stable Helm image
-        command: 'sleep 1d'
-    ), 
-    containerTemplate(
-        name: 'git', 
-        image: 'alpine/git', // Use the latest stable Helm image
-        command: 'sleep 1d'
-    )], 
-  volumes: [
-    emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
-  ]) {
+podTemplate(
+    cloud: 'kubernetes',
+    containers: [
+        containerTemplate(
+            name: 'jnlp',
+            image: 'jenkins/inbound-agent:latest'
+        ),
+        containerTemplate(
+            name: 'docker',
+            image: 'docker:26-dind',
+            privileged: true,
+            // Start dockerd directly: the image entrypoint adds a TCP listener.
+            command: 'dockerd',
+            args: '--storage-driver=vfs --host=unix:///var/run/docker.sock',
+            envVars: [
+                envVar(key: 'DOCKER_HOST', value: 'unix:///var/run/docker.sock'),
+                envVar(key: 'DOCKER_TLS_CERTDIR', value: ''),
+                envVar(key: 'DOCKER_TLS_VERIFY', value: '')
+            ]
+        ),
+        containerTemplate(
+            name: 'tests',
+            image: 'python:3.14.4-alpine3.23', // Match the application runtime.
+            command: 'sleep 1d'
+        ),
+        containerTemplate(
+            name: 'bandit',
+            image: 'python:3.13', // Use the latest stable Python image
+            command: 'sleep 1d'
+        ),
+        containerTemplate(
+            name: 'checkov',
+            image: 'python:3.13', // Use the latest stable Python image
+            command: 'sleep 1d'
+        ),
+        containerTemplate(
+            name: 'semgrep',
+            image: 'python:3.13', // Use the latest stable Python image
+            command: 'sleep 1d'
+        ),
+        containerTemplate(
+            name: 'helm',
+            image: 'alpine/helm', // Use the latest stable Helm image
+            command: 'sleep 1d'
+        ),
+        containerTemplate(
+            name: 'git',
+            image: 'alpine/git', // Use the latest stable Helm image
+            command: 'sleep 1d'
+        )
+    ],
+    volumes: [
+        emptyDirVolume(mountPath: '/var/lib/docker', memory: false)
+    ]
+) {
     node(POD_LABEL) {
+        stage('Docker readiness') {
+            container('docker') {
+                timeout(time: 1, unit: 'MINUTES') {
+                    waitUntil(initialRecurrencePeriod: 1000) {
+                        sh(script: 'docker info > /dev/null 2>&1', returnStatus: true) == 0
+                    }
+                }
+            }
+        }
         stage('Checkout & Extract App Information') {
             container('jnlp') {                       
                 // select env type
                 (envShortName, envName) = userInput.choiceEnv()
-                // Ensure we skip SSL if needed internally, then pull code
-                sh 'git config --global http.sslVerify false'
-                checkout scm
+                // Verify HTTPS certificates even if the agent has a legacy bypass.
+                withEnv(['GIT_SSL_NO_VERIFY=false', 'GIT_CONFIG_COUNT=1',
+                         'GIT_CONFIG_KEY_0=http.sslVerify', 'GIT_CONFIG_VALUE_0=true']) {
+                    if (env.GIT_CA_CREDENTIALS_ID?.trim()) {
+                        withCredentials([file(credentialsId: env.GIT_CA_CREDENTIALS_ID.trim(),
+                                              variable: 'GIT_SSL_CAINFO')]) {
+                            checkout scm
+                        }
+                    } else {
+                        checkout scm
+                    }
+                }
                 echo "Extracting information from .app-info.json..." 
                 def jsonObj = readJSON file: '.app-info.json'
                 (appInfo,version,image) = jsons.parse(jsonObj, envShortName)
@@ -71,11 +100,28 @@ podTemplate(cloud: 'kubernetes', containers: [
                 }
             }
         }
+        stage('Application Tests') {
+            container('tests') {
+                timeout(time: 10, unit: 'MINUTES') {
+                    sh '''
+                        set -eu
+                        python -m venv /tmp/aws-monitor-tests
+                        /tmp/aws-monitor-tests/bin/python -m pip install --no-cache-dir -r requirements.txt
+                        /tmp/aws-monitor-tests/bin/python -m unittest discover -s tests -v
+                    '''
+                }
+            }
+        }
         stage("Environment preparations"){
             parallel(
                 "Install Checkov" : {
                     container('checkov') {
-                        installers.installCheckov()
+                        // Keep tool dependencies outside the shared workspace.
+                        sh '''
+                            set -eu
+                            python3 -m venv /tmp/aws-monitor-checkov
+                            /tmp/aws-monitor-checkov/bin/python -m pip install checkov
+                        '''
                     }
                 },
                 "Install Bandit" : {
@@ -85,7 +131,11 @@ podTemplate(cloud: 'kubernetes', containers: [
                 },
                 "Install Semgrep" : {
                     container('semgrep') {
-                        installers.installSemgrep()
+                        sh '''
+                            set -eu
+                            python3 -m venv /tmp/aws-monitor-semgrep
+                            /tmp/aws-monitor-semgrep/bin/python -m pip install semgrep
+                        '''
                     }
                 },
                 "Install Trivy" : {
@@ -111,14 +161,22 @@ podTemplate(cloud: 'kubernetes', containers: [
                 'Checkov Testing': {
                     container('checkov') {
                         echo "Running Checkov on Dockerfile and Helm Chart..."
-                        security.checkovScan("Dockerfile", "-f", "dockerfile")
-                        security.checkovScan("./chart", "-d", "helm")
+                        security.checkovScan("Dockerfile", "-f", "dockerfile", "/tmp/aws-monitor-checkov")
+                        security.checkovScan("./chart", "-d", "helm", "/tmp/aws-monitor-checkov")
                     }
                 },
                 'Semgrep Testing': {
                     container('semgrep') {
                         echo "Running Semgrep Scans..."
-                        security.semgrepScan()
+                        sh '''
+                            /tmp/aws-monitor-semgrep/bin/semgrep scan \\
+                                --config=p/python \\
+                                --config=p/dockerfile \\
+                                --config=p/kubernetes \\
+                                --config=p/github-actions \\
+                                --metrics=off \\
+                                --error
+                        '''
                     }
                 }
             )
@@ -169,22 +227,23 @@ podTemplate(cloud: 'kubernetes', containers: [
             }
         }
         stage('Validate Manifest') {
+            def manifestPath = "${pwd()}/manifests"
             parallel(
                 "Checkov Test" : {
                     container('checkov') {
-                        security.checkovScan("./manifests/app.yaml", "-d", "kubernetes")
+                        security.checkovScan("./manifests/app.yaml", "-f", "kubernetes", "/tmp/aws-monitor-checkov")
                     }
                 },
                 "Kube Score Scan" : {
                     container('docker'){
                         echo "Running kube score vulnerability scan on manifest"
-                        security.kubeScoreScan("./manifests/", "app.yaml")
+                        security.kubeScoreScan(manifestPath, "app.yaml")
                     }
                 },
                 "Trivy Scan" : {
                     container('docker'){
                         echo "Running trivy vulnerability scan on manifest"
-                        security.trivyScanFile("./manifests/", "app.yaml")
+                        security.trivyScanFile(manifestPath, "app.yaml")
                     }
                 }
             )
@@ -207,17 +266,6 @@ podTemplate(cloud: 'kubernetes', containers: [
             }
         }
 
-        stage('Cleanup Workspace') {
-            container('alpine') {
-                echo "Cleaning up workspace..."
-                cleanWs(
-                    cleanWhenNotBuilt: true,
-                    deleteDirs: true,
-                    disableDeferredWipeout: true,
-                    notFailBuild: true
-                )
-            }
-        }       
     }
 
 }

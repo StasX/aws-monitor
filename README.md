@@ -39,6 +39,7 @@ A complete CI/CD pipeline has been implemented using Jenkins.
 Pipeline stages include:
 
 - Source code checkout.
+- Application tests using unittest, blocking image builds and publishing on failure.
 - Application version detection.
 - Static code analysis.
 - Security scanning.
@@ -47,6 +48,45 @@ Pipeline stages include:
 - Helm chart deployment.
 - GitOps repository update.
 - Kubernetes deployment.
+
+The `Application Tests` stage runs the full unittest suite in a dedicated container
+matching the Dockerfile's Python/Alpine runtime. It installs `requirements.txt`
+in an isolated virtual environment and has a ten-minute timeout covering setup
+and execution. Tests mock AWS and require no AWS credentials.
+
+### Jenkins Docker daemon isolation
+
+Builds, image scans, tagging, and publishing run inside the `docker` container
+using `unix:///var/run/docker.sock`. The pipeline starts `dockerd` directly with
+only that Unix socket, bypassing the image entrypoint's automatic TCP listeners.
+The socket is not mounted into the other containers. Docker storage uses a
+pod-scoped `emptyDir`; no host Docker socket or host Docker data directory is
+mounted. A bounded readiness check waits for the daemon before pipeline work.
+
+The Docker-in-Docker container still runs privileged. A local socket removes
+network access to the daemon, but does not remove the node risk of privileged
+builds. Run this agent on dedicated, disposable CI nodes, restrict who can submit
+pipeline code, and do not schedule untrusted pull requests or production workloads
+on those nodes. Removing privileged mode requires migrating the build and scan
+steps in the shared library to a compatible builder.
+
+### Jenkins Git certificate trust
+
+Checkout verifies HTTPS certificates using the agent's trusted certificate
+authorities by default. For an internal Git server or TLS inspection proxy,
+create a Jenkins **Secret file** credential containing a PEM CA bundle and set
+the job environment variable `GIT_CA_CREDENTIALS_ID` to its credential ID.
+Include the required root and intermediate CA certificates, plus public roots
+if checkout also accesses public repositories. The pipeline binds this file as
+`GIT_SSL_CAINFO` only during checkout and explicitly enables TLS verification.
+An invalid or untrusted certificate fails checkout.
+
+The Jenkinsfile cannot configure trust for its own initial retrieval or for the
+Shared Library, which loads before pipeline execution. Configure the same CA
+trust on the Jenkins controller and relevant agents for those operations. GitOps
+operations in the separate `git` container also need the CA in that container's
+trust store when accessing internal servers. Remove any legacy global
+`http.sslVerify=false` configuration from Jenkins agent images and configuration.
 
 ### Jenkins Shared Library
 
