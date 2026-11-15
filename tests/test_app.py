@@ -3,6 +3,8 @@ import unittest
 from unittest.mock import Mock, patch
 from botocore.exceptions import ClientError, EndpointConnectionError, NoCredentialsError, PartialCredentialsError
 
+from werkzeug.security import generate_password_hash
+
 from app import create_app
 from app.utils.app_config import AppConfig
 from app.logic.resources_logic import ResourcesLogic
@@ -28,7 +30,9 @@ class ApplicationTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.app = create_app()
         self.app.config.update(TESTING=True, AWS_REGION='eu-west-1', AWS_CACHE_TTL=0)
+        self.app.config.update(DASHBOARD_USERNAME='tester', DASHBOARD_PASSWORD_HASH=generate_password_hash('test-password', method='pbkdf2:sha256:1000'))
         self.client = self.app.test_client()
+        self.client.environ_base['HTTP_AUTHORIZATION'] = 'Basic dGVzdGVyOnRlc3QtcGFzc3dvcmQ='
 
     def test_monitoring_does_not_access_aws(self):
         with patch('app.utils.dal.boto3.Session') as session:

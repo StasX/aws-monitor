@@ -130,7 +130,10 @@ class PaginationTests(unittest.TestCase):
             ec2_proxy.get_paginator.side_effect = get_paginator
             with patch('app.utils.dal.boto3.Session') as session:
                 session.return_value.client.side_effect = lambda service, **kwargs: {'ec2': ec2_proxy, 'elbv2': elb}[service]
-                response = create_app().test_client().get('/')
+                application = create_app()
+                from werkzeug.security import generate_password_hash
+                application.config.update(DASHBOARD_USERNAME='tester', DASHBOARD_PASSWORD_HASH=generate_password_hash('test-password', method='pbkdf2:sha256:1000'))
+                response = application.test_client().get('/', auth=('tester', 'test-password'))
             self.assertEqual(response.status_code, 200)
             html = response.get_data(as_text=True)
             self.assertIn('i-page1', html)

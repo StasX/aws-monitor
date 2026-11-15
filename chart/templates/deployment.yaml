@@ -51,6 +51,16 @@ spec:
           containerPort: {{ .Values.pod.targetPort }}
         
         env:
+          - name: DASHBOARD_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ required "dashboard.existingSecret is required" .Values.dashboard.existingSecret }}
+                key: DASHBOARD_USERNAME
+          - name: DASHBOARD_PASSWORD_HASH
+            valueFrom:
+              secretKeyRef:
+                name: {{ .Values.dashboard.existingSecret }}
+                key: DASHBOARD_PASSWORD_HASH
           - name: APP_HOST
             value: "0.0.0.0"
           - name: AWS_ACCESS_KEY_ID

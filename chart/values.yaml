@@ -1,11 +1,16 @@
 replicas: 2
 
 ingress:
-  enabled: true
+  enabled: false
+  host: ""
+  tlsSecretName: ""
   path: /
   pathType: Prefix
   className: nginx
   annotations: {}
+
+dashboard:
+  existingSecret: aws-monitor-dashboard
 
 pod:
   image: sm1986/aws-monitor

@@ -201,6 +201,60 @@ Use `python -m app` for local development on Windows.
 Run the application tests with `python -m unittest discover -s tests -v`.
 They mock the AWS session and do not require AWS credentials.
 
+## Dashboard authentication
+
+The dashboard requires HTTP Basic authentication (a browser login prompt). Set
+`DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD_HASH` before starting the application.
+Missing configuration returns HTTP 503; missing or incorrect login returns HTTP
+401 before any AWS query. `/health`, `/metrics`, and static assets remain public.
+Dashboard responses use `Cache-Control: no-store`. There are no default credentials
+or authentication bypass settings. Restart workers after changing credentials.
+
+Generate a password hash interactively; the password is not passed on the command line:
+
+```sh
+python -c "from getpass import getpass; from werkzeug.security import generate_password_hash; print(generate_password_hash(getpass('Dashboard password: ')))"
+```
+
+For local PowerShell development, set the username and paste the generated hash
+inside single quotes (which preserve its dollar signs):
+
+```powershell
+$env:DASHBOARD_USERNAME = 'operator'
+$env:DASHBOARD_PASSWORD_HASH = 'PASTE_GENERATED_HASH_HERE'
+python -m app
+```
+
+For Kubernetes, create the dashboard Secret in the release namespace before
+installing or upgrading. Use the generated hash, never the plaintext password:
+
+```sh
+kubectl create namespace dev
+kubectl -n dev create secret generic aws-monitor-dashboard --from-literal=DASHBOARD_USERNAME=operator --from-literal='DASHBOARD_PASSWORD_HASH=PASTE_GENERATED_HASH_HERE'
+```
+
+`dashboard.existingSecret` selects this Secret. Its required keys are
+`DASHBOARD_USERNAME` and `DASHBOARD_PASSWORD_HASH`. Existing deployments must create
+it before upgrading. Credential rotation requires a rollout restart.
+Password checking uses [Werkzeug password hashing](https://werkzeug.palletsprojects.com/en/stable/utils/#werkzeug.security.generate_password_hash).
+
+Ingress is disabled by default. To expose the dashboard, point your hostname at
+the ingress controller, create a TLS Secret containing a certificate for that
+hostname, and set all three ingress values:
+
+```sh
+kubectl -n dev create secret tls aws-monitor-tls --cert=fullchain.pem --key=privkey.pem
+helm upgrade --install aws-monitor ./chart --namespace dev --set pod.tag=YOUR_IMAGE_TAG --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
+```
+
+The chart rejects enabled ingress without a host or TLS Secret name. The ingress
+TLS host matches its routing host, following [Kubernetes ingress TLS configuration](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls).
+NGINX HTTPS redirect annotations are enforced. Other ingress controllers need their
+own redirect configuration through `ingress.annotations`. Use HTTPS for remote
+access: Basic authentication sends credentials with each request. Local HTTP is
+intended for loopback development or a loopback port-forward only. The chart
+references an existing certificate Secret; it does not issue certificates.
+
 ## Helm deployment configuration
 
 Install with an explicit image tag published by your pipeline:
@@ -220,9 +274,9 @@ Autoscaling requires the Kubernetes metrics server. `hpa.minReplicas` defaults t
 two; when HPA is disabled, `replicas` controls the deployment size. The disruption
 budget uses `pdb.maxUnavailable` (default one).
 
-Ingress defaults to the nginx class with a Prefix path and no rewrite. Configure
+Ingress is disabled by default and uses the nginx class with a Prefix path and no rewrite when enabled. Configure
 `ingress.annotations` and `ingress.pathType` for deployments requiring regex rewrites.
-Readiness and liveness use TCP checks because the application has no health route.
+Readiness and liveness currently use TCP checks; `/health` is also available without authentication.
 Pod security settings belong under `securityContext`, including optional UID/GID overrides.
 
 PodMonitor and ServiceMonitor are disabled by default: the current application
