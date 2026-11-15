@@ -186,13 +186,18 @@ the setting name and allowed range:
 | `AWS_MAX_DATA_AGE` | 900 seconds | 1–86400 seconds |
 | `WEB_CONCURRENCY` | 2 | 1–32 workers (integer) |
 | `GUNICORN_THREADS` | 4 | 1–64 threads (integer) |
+| `APP_PORT` (Gunicorn) | 5001 | 1–65535 (integer) |
 
 Zero disables result caching or the failure cooldown, or makes the HTTP refresh
 wait return immediately. The background task budget must remain positive.
 
 Docker runs Gunicorn using `gunicorn.conf.py`, listening on port 5001 with two
 workers and four request threads per worker. Set `WEB_CONCURRENCY` and
-`GUNICORN_THREADS` to tune concurrency, and `APP_HOST` to change the bind address.
+`GUNICORN_THREADS` to tune concurrency, `APP_HOST` to change the bind address,
+and `APP_PORT` to change the Gunicorn listening port. Helm sets `APP_PORT` from
+`pod.targetPort`, keeping the listener, Service, and probes aligned. Docker's
+health check also uses `APP_PORT`; publish the matching container port when
+overriding it. The local development server still defaults to port 5001.
 Access and error logs go to container output; worker heartbeat files use
 `/dev/shm` to support the Helm deployment's read-only root filesystem.
 On Linux, you can also run `gunicorn --config gunicorn.conf.py 'app.app:create_app()'`.

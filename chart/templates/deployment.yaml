@@ -63,6 +63,8 @@ spec:
                   key: DASHBOARD_PASSWORD_HASH
             - name: APP_HOST
               value: "0.0.0.0"
+            - name: APP_PORT
+              value: {{ .Values.pod.targetPort | quote }}
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
