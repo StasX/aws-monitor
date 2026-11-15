@@ -74,6 +74,8 @@ Actions settings and branch rules must permit that bot commit. Set up GitHub
 environments named `dev`, `qa`, and `prod`; use required reviewers for production
 if desired. Optional Actions variables `DOCKERHUB_REPOSITORY` and
 `GITOPS_REPOSITORY` default to `sm1986/aws-monitor` and `StasX/argo-gitops`.
+`APP_HOST` does not need a GitHub Actions secret or variable: the Dockerfile sets
+`ENV APP_HOST="0.0.0.0"` in the runtime image, and Gunicorn reads it at startup.
 
 Release behavior follows the Jenkins shared library:
 
@@ -322,8 +324,10 @@ the setting name and allowed range:
 Zero disables result caching or the failure cooldown, or makes the HTTP refresh
 wait return immediately. The background task budget must remain positive.
 
-Docker runs Gunicorn using `gunicorn.conf.py`, listening on port 5001 with two
-workers and four request threads per worker. Set `WEB_CONCURRENCY` and
+The Dockerfile sets `ENV APP_HOST="0.0.0.0"`, so containers listen on all container
+network interfaces. Gunicorn reads `APP_HOST` directly from the environment,
+without a hardcoded fallback in `gunicorn.conf.py`. Docker runs Gunicorn on port
+5001 with two workers and four request threads per worker. Set `WEB_CONCURRENCY` and
 `GUNICORN_THREADS` to tune concurrency, `APP_HOST` to change the bind address,
 and `APP_PORT` to change the Gunicorn listening port. Helm sets `APP_PORT` from
 `pod.targetPort`, keeping the listener, Service, and probes aligned. Docker's
@@ -331,7 +335,11 @@ health check also uses `APP_PORT`; publish the matching container port when
 overriding it. The local development server still defaults to port 5001.
 Access and error logs go to container output; worker heartbeat files use
 `/dev/shm` to support the Helm deployment's read-only root filesystem.
-On Linux, you can also run `gunicorn --config gunicorn.conf.py 'app.app:create_app()'`.
+On Linux, set `APP_HOST` before running Gunicorn, for example:
+`APP_HOST=127.0.0.1 gunicorn --config gunicorn.conf.py 'app.app:create_app()'`.
+Docker supplies `APP_HOST` automatically from the image; Helm also explicitly sets
+`APP_HOST=0.0.0.0` in the Deployment. Set it manually only when launching Gunicorn
+outside the container, or override the image default with `docker run -e APP_HOST=...`.
 Use `python -m app` for local development on Windows.
 
 Run the application tests with `python -m unittest discover -s tests -v`.

@@ -56,10 +56,10 @@ class ConfigurationTests(unittest.TestCase):
 
     def test_gunicorn_settings_are_validated_when_loaded(self):
         for name in ['APP_PORT', 'WEB_CONCURRENCY', 'GUNICORN_THREADS']:
-            with self.subTest(name=name), patch.dict(os.environ, {name: '0'}, clear=True):
+            with self.subTest(name=name), patch.dict(os.environ, {name: '0', 'APP_HOST': '127.0.0.1'}, clear=True):
                 with self.assertRaisesRegex(ValueError, name):
                     runpy.run_path(str(ROOT / 'gunicorn.conf.py'))
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {'APP_HOST': '0.0.0.0'}, clear=True):
             settings = runpy.run_path(str(ROOT / 'gunicorn.conf.py'))
             self.assertEqual(settings['workers'], 2)
             self.assertEqual(settings['threads'], 4)

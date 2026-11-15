@@ -88,7 +88,7 @@ for _ in range(2):
             retained_file = Path(directory) / 'keep.txt'
             metric_file.touch()
             retained_file.touch()
-            with patch.dict(os.environ, {'PROMETHEUS_MULTIPROC_DIR': directory}):
+            with patch.dict(os.environ, {'PROMETHEUS_MULTIPROC_DIR': directory, 'APP_HOST': '127.0.0.1'}):
                 config = runpy.run_path(str(ROOT / 'gunicorn.conf.py'))
                 config['on_starting'](None)
             self.assertFalse(metric_file.exists())
