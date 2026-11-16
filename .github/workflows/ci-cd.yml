@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: azure/setup-helm@v5.0.0
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
         with:
           version: v3.18.4
       - name: Test with the application Python/Alpine runtime
@@ -57,7 +57,7 @@ jobs:
           python3 -m unittest discover -s tests -p test_helm_schema.py -v 2>&1 | tee reports/helm-tests.txt
       - name: Save test reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-reports
           path: reports/
@@ -72,13 +72,13 @@ jobs:
       matrix:
         scanner: [bandit, checkov, semgrep]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.13'
-      - uses: azure/setup-helm@v5.0.0
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
         with:
           version: v3.18.4
       - name: Install scanner
@@ -113,7 +113,7 @@ jobs:
             2>&1 | tee reports/semgrep.txt
       - name: Save security reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: security-reports-${{ matrix.scanner }}
           path: reports/
@@ -134,7 +134,7 @@ jobs:
       GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY || 'StasX/argo-gitops' }}
       DOCKER_BUILD_RECORD_RETENTION_DAYS: '14'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
       - name: Verify credentials are configured
@@ -150,21 +150,21 @@ jobs:
         id: metadata
         run: python3 .github/scripts/release_metadata.py prepare
       - name: Check out environment values
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ env.GITOPS_REPOSITORY }}
           ref: monitor
           token: ${{ secrets.GITOPS_TOKEN }}
           path: gitops-values
           persist-credentials: false
-      - uses: azure/setup-helm@v5.0.0
+      - uses: azure/setup-helm@dda3372f752e03dde6b3237bc9431cdc2f7a02a2 # v5.0.0
         with:
           version: v3.18.4
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.13'
       - name: Check out current application branch for version update
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: main
           path: version-update
@@ -175,12 +175,12 @@ jobs:
             exit 1
           }
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
       - name: Prepare release reports
         run: mkdir -p reports
       - name: Build image for scanning
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           # Use the event's immutable Git context for both build invocations.
           context: "{{defaultContext}}"
@@ -191,7 +191,7 @@ jobs:
           sbom: false
           tags: ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
       - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.DOCKER_REPOSITORY }}:${{ steps.metadata.outputs.tag }}
           format: json
@@ -199,13 +199,13 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
       - name: Log in to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Publish scanned image
         id: publish
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: "{{defaultContext}}"
           platforms: linux/amd64
@@ -247,7 +247,7 @@ jobs:
           docker run --rm --mount "type=bind,source=$PWD/manifests,target=/work,readonly" \
             zegl/kube-score:v1.20.0 score /work/app.yaml 2>&1 | tee reports/kube-score.txt
       - name: Validate rendered manifest with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
           scan-ref: manifests/app.yaml
@@ -257,14 +257,14 @@ jobs:
           exit-code: '1'
       - name: Save rendered manifest
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: manifest-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: manifests/app.yaml
           if-no-files-found: warn
           retention-days: 14
       - name: Check out GitOps destination
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: ${{ env.GITOPS_REPOSITORY }}
           ref: main
@@ -293,7 +293,7 @@ jobs:
           git -C version-update push origin HEAD:main
       - name: Save release reports
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-reports-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: reports/
