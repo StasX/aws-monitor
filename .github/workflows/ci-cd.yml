@@ -31,10 +31,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: azure/setup-helm@v5
+      - uses: azure/setup-helm@v5.0.0
         with:
           version: v3.18.4
       - name: Test with the application Python/Alpine runtime
@@ -57,7 +57,7 @@ jobs:
           python3 -m unittest discover -s tests -p test_helm_schema.py -v 2>&1 | tee reports/helm-tests.txt
       - name: Save test reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-reports
           path: reports/
@@ -72,13 +72,13 @@ jobs:
       matrix:
         scanner: [bandit, checkov, semgrep]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
-      - uses: azure/setup-helm@v5
+      - uses: azure/setup-helm@v5.0.0
         with:
           version: v3.18.4
       - name: Install scanner
@@ -113,7 +113,7 @@ jobs:
             2>&1 | tee reports/semgrep.txt
       - name: Save security reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-reports-${{ matrix.scanner }}
           path: reports/
@@ -134,7 +134,7 @@ jobs:
       GITOPS_REPOSITORY: ${{ vars.GITOPS_REPOSITORY || 'StasX/argo-gitops' }}
       DOCKER_BUILD_RECORD_RETENTION_DAYS: '14'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Verify credentials are configured
@@ -150,21 +150,21 @@ jobs:
         id: metadata
         run: python3 .github/scripts/release_metadata.py prepare
       - name: Check out environment values
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.GITOPS_REPOSITORY }}
           ref: monitor
           token: ${{ secrets.GITOPS_TOKEN }}
           path: gitops-values
           persist-credentials: false
-      - uses: azure/setup-helm@v5
+      - uses: azure/setup-helm@v5.0.0
         with:
           version: v3.18.4
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
       - name: Check out current application branch for version update
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: main
           path: version-update
@@ -257,14 +257,14 @@ jobs:
           exit-code: '1'
       - name: Save rendered manifest
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: manifest-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: manifests/app.yaml
           if-no-files-found: warn
           retention-days: 14
       - name: Check out GitOps destination
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ env.GITOPS_REPOSITORY }}
           ref: main
@@ -293,7 +293,7 @@ jobs:
           git -C version-update push origin HEAD:main
       - name: Save release reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-reports-${{ inputs.environment }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: reports/
