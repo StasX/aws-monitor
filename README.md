@@ -77,6 +77,46 @@ if desired. Optional Actions variables `DOCKERHUB_REPOSITORY` and
 `APP_HOST` does not need a GitHub Actions secret or variable: the Dockerfile sets
 `ENV APP_HOST="0.0.0.0"` in the runtime image, and Gunicorn reads it at startup.
 
+#### Configure the GitOps token
+
+1. In your GitHub account, open **Settings > Developer settings > Personal access
+   tokens > Fine-grained tokens > Generate new token**.
+2. Select **StasX** as the resource owner and grant access to **argo-gitops**.
+   If you override `GITOPS_REPOSITORY`, select that repository and its owner instead.
+3. Under **Repository permissions**, set **Contents** to **Read and write**.
+   The account creating the token must itself have write access to the repository.
+   Complete any organization approval required for the token.
+4. In the **aws-monitor** repository, open **Settings > Secrets and variables >
+   Actions** and save the token as `GITOPS_TOKEN`. Alternatively, save it under
+   **Settings > Environments > dev/qa/prod > Environment secrets** for the selected
+   release environment. An environment secret overrides a repository secret with
+   the same name, so replace any stale environment copy too.
+
+The token reads environment values from the `monitor` branch and pushes rendered
+manifests to `main` in the GitOps repository. The workflow's `permissions:
+contents: write` applies to its built-in `GITHUB_TOKEN`; it does not grant the
+separate `GITOPS_TOKEN` access to another repository. See
+[GitHub's personal access token documentation](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens).
+
+#### Troubleshoot GitOps HTTP 403 errors
+
+For `fatal: unable to access 'https://github.com/StasX/argo-gitops/': ... 403`,
+check the failing workflow step:
+
+- **Check out environment values** or **Check out GitOps destination**: verify
+  that `GITOPS_TOKEN` has not expired or been revoked, targets the correct owner
+  and repository, and has any required organization approval.
+- **Update GitOps manifest**: if checkout succeeded but push failed, verify
+  **Contents: Read and write** and the token owner's write access. Check the
+  preceding Git log lines for branch protection or repository rules that reject
+  direct pushes to `main`; use an allowed release identity or a pull request
+  process where the repository requires one.
+
+After replacing a token, update the effective repository or environment secret.
+Inspect whether the image was already published or the GitOps commit was already
+pushed before starting another release. Do not put token values in Git URLs,
+workflow files, logs, or issue comments.
+
 Release behavior follows the Jenkins shared library:
 
 1. Read the selected version from `.app-info.json`.
