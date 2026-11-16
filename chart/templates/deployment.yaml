@@ -22,6 +22,15 @@ spec:
         {{- include "exam.labels" . | nindent 8 }}
     spec:
       automountServiceAccountToken: false
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: {{ .Release.Name }}
+                topologyKey: kubernetes.io/hostname
       {{- if .Values.securityContext.enabled }}
       securityContext:
         {{- omit .Values.securityContext "enabled" | toYaml | nindent 8 }}
@@ -39,8 +48,7 @@ spec:
             periodSeconds: 10
 
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: http
             initialDelaySeconds: 30
             periodSeconds: 20

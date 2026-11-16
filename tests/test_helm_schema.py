@@ -118,3 +118,12 @@ class HelmSchemaTests(unittest.TestCase):
         result = self.render('ingress.enabled=false', 'ingress.host=')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn('kind: Ingress', result.stdout)
+
+    def test_probes_and_single_node_compatible_spreading(self):
+        result = self.render()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('readinessProbe:\n            httpGet:\n              path: /health', result.stdout)
+        self.assertIn('livenessProbe:\n            tcpSocket:\n              port: http', result.stdout)
+        self.assertIn('preferredDuringSchedulingIgnoredDuringExecution:', result.stdout)
+        self.assertIn('topologyKey: kubernetes.io/hostname', result.stdout)
+        self.assertNotIn('requiredDuringSchedulingIgnoredDuringExecution:', result.stdout)
