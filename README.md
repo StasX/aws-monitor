@@ -540,15 +540,18 @@ The Service type follows `ingress.enabled`:
 
 | Configuration | Service type | Remote access |
 | --- | --- | --- |
-| `ingress.enabled=true` | `ClusterIP` | Through your ingress controller with the configured TLS Secret |
-| `ingress.enabled=false` (chart default) | `LoadBalancer` | HTTP unless transport security is configured outside this chart |
+| `ingress.enabled=true` (chart default) | `ClusterIP` | Through your ingress controller; localhost HTTP by default |
+| `ingress.enabled=false` | `LoadBalancer` | HTTP unless transport security is configured outside this chart |
 
 Choose either option in `chart/values.yaml` or a release values file. The defaults
-remain direct LoadBalancer access with no trusted proxies:
+use localhost ingress with no trusted proxies:
 
 ```yaml
 ingress:
-  enabled: false
+  enabled: true
+  host: localhost
+  tls:
+    enabled: false
 dashboard:
   trustedProxyCidrs: []
 ```
@@ -589,9 +592,14 @@ kubectl -n dev create secret tls aws-monitor-tls --cert=fullchain.pem --key=priv
 helm upgrade --install aws-monitor ./chart --namespace dev --set-string pod.digest=sha256:YOUR_IMAGE_DIGEST --set ingress.enabled=true --set ingress.host=monitor.example.com --set ingress.tlsSecretName=aws-monitor-tls
 ```
 
-The chart rejects enabled ingress without a host or TLS Secret name. The ingress
+The chart rejects enabled ingress without a host. TLS is enabled by setting
+`ingress.tls.enabled=true` or providing `ingress.tlsSecretName`; when enabled,
+it requires an existing TLS Secret name. With TLS disabled and no Secret name,
+the chart omits TLS and disables NGINX HTTPS redirects for local HTTP access.
+Docker Desktop needs an ingress controller exposed on localhost for this mode.
+The ingress
 TLS host matches its routing host, following [Kubernetes ingress TLS configuration](https://kubernetes.io/docs/concepts/services-networking/ingress/#tls).
-NGINX HTTPS redirect annotations are enforced. Other ingress controllers need their
+NGINX HTTPS redirect annotations are enforced when TLS is enabled. Other ingress controllers need their
 own redirect configuration through `ingress.annotations`. Use HTTPS for remote
 access: Basic authentication sends credentials with each request. Local HTTP is
 intended for loopback development or a loopback port-forward only. The chart

@@ -11,8 +11,11 @@ app:
   threads: 4
 
 ingress:
-  enabled: false
-  host: ""
+  enabled: true
+  host: "localhost"
+  tls:
+    enabled: false
+  # Setting a secret also enables TLS for existing environment values.
   tlsSecretName: ""
   path: /
   pathType: Prefix

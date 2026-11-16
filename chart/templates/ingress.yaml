@@ -1,6 +1,6 @@
 {{- if .Values.ingress.enabled }}
 {{- $host := required "ingress.host is required when ingress is enabled" .Values.ingress.host }}
-{{- $tlsSecret := required "ingress.tlsSecretName is required when ingress is enabled" .Values.ingress.tlsSecretName }}
+{{- $tlsEnabled := or .Values.ingress.tls.enabled (ne .Values.ingress.tlsSecretName "") }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -10,15 +10,17 @@ metadata:
     {{- include "exam.labels" . | nindent 4 }}
   annotations:
     {{- $annotations := deepCopy .Values.ingress.annotations }}
-    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/ssl-redirect" "true" }}
-    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/force-ssl-redirect" "true" }}
+    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/ssl-redirect" (ternary "true" "false" $tlsEnabled) }}
+    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/force-ssl-redirect" (ternary "true" "false" $tlsEnabled) }}
     {{- toYaml $annotations | nindent 4 }}
 spec:
   ingressClassName: {{ .Values.ingress.className | quote }}
+  {{- if $tlsEnabled }}
   tls:
     - hosts:
         - {{ $host | quote }}
-      secretName: {{ $tlsSecret | quote }}
+      secretName: {{ required "ingress.tlsSecretName is required when TLS is enabled" .Values.ingress.tlsSecretName | quote }}
+  {{- end }}
   rules:
     - host: {{ $host | quote }}
       http:

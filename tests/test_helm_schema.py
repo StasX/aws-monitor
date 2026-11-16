@@ -89,3 +89,32 @@ class HelmSchemaTests(unittest.TestCase):
         result = self.render('dashboard.trustedProxyCidrs[0]=10.20.0.0/24')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('name: AUTH_TRUSTED_PROXY_CIDRS\n              value: "10.20.0.0/24"', result.stdout)
+
+    def test_localhost_ingress_without_tls(self):
+        result = self.render()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('host: "localhost"', result.stdout)
+        self.assertNotIn('  tls:', result.stdout)
+        self.assertIn('nginx.ingress.kubernetes.io/ssl-redirect: "false"', result.stdout)
+
+    def test_ingress_tls_and_required_values(self):
+        for overrides in [
+            ('ingress.host=',),
+            ('ingress.tls.enabled=true',),
+        ]:
+            with self.subTest(overrides=overrides):
+                result = self.render(*overrides)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('is required', result.stderr)
+        for enabled in ('true', 'false'):
+            result = self.render('ingress.host=monitor.example.com',
+                                 f'ingress.tls.enabled={enabled}',
+                                 'ingress.tlsSecretName=monitor-tls')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn('secretName: "monitor-tls"', result.stdout)
+            self.assertIn('nginx.ingress.kubernetes.io/ssl-redirect: "true"', result.stdout)
+
+    def test_disabled_ingress_needs_no_host_or_tls(self):
+        result = self.render('ingress.enabled=false', 'ingress.host=')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('kind: Ingress', result.stdout)
